@@ -40,9 +40,12 @@ export function useChessGame() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
 
   const fenHistoryRef = useRef<string[]>([]);
+  const repetitionHistoryRef = useRef<Map<string, number>>(new Map());
   const lastAppliedRemoteFenRef = useRef<string | null>(null);
   const lastRemoteUpdateRef = useRef<number | null>(null);
   const roomStatusRef = useRef<'waiting' | 'active' | 'finished' | null>(null);
+  const botMoveLockRef = useRef(false);
+  const [gameResult, setGameResult] = useState<{ winner: string; reason: string; isDraw: boolean } | null>(null);
 
   // Fetch or register user ELO profile
   const fetchUserProfile = async (name: string) => {
@@ -68,13 +71,13 @@ export function useChessGame() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('apex_chess_username');
+      const saved = localStorage.getItem('shohmot_username');
       if (saved) {
         setUsername(saved);
         fetchUserProfile(saved);
 
-        const savedMode = localStorage.getItem('apex_chess_mode') as GameMode | null;
-        const savedRoomCode = localStorage.getItem('apex_chess_room_code');
+        const savedMode = localStorage.getItem('shohmot_mode') as GameMode | null;
+        const savedRoomCode = localStorage.getItem('shohmot_room_code');
 
         if (savedMode) {
           setMode(savedMode);
@@ -86,7 +89,7 @@ export function useChessGame() {
               setIsPlaying(true);
             })
             .catch(() => {
-              localStorage.removeItem('apex_chess_room_code');
+              localStorage.removeItem('shohmot_room_code');
               setRoomCode(null);
               setMode('ai');
             });
@@ -100,11 +103,11 @@ export function useChessGame() {
   // Persist mode and roomCode
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('apex_chess_mode', mode);
+      localStorage.setItem('shohmot_mode', mode);
       if (roomCode) {
-        localStorage.setItem('apex_chess_room_code', roomCode);
+        localStorage.setItem('shohmot_room_code', roomCode);
       } else {
-        localStorage.removeItem('apex_chess_room_code');
+        localStorage.removeItem('shohmot_room_code');
       }
     }
   }, [mode, roomCode]);
@@ -126,7 +129,7 @@ export function useChessGame() {
   const handleLogin = async (name: string) => {
     setUsername(name);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('apex_chess_username', name);
+      localStorage.setItem('shohmot_username', name);
     }
     await fetchUserProfile(name);
     setShowLoginModal(false);
@@ -136,14 +139,16 @@ export function useChessGame() {
 
   // Repetition check helper (if FEN repeated 3 times in history)
   const checkRepetition = (fen: string) => {
-    const currentBoardFen = fen.split(' ')[0];
-    fenHistoryRef.current.push(currentBoardFen);
-    const count = fenHistoryRef.current.filter((f) => f === currentBoardFen).length;
-    if (count >= 3) {
+    const key = `${fen} ${engineRef.current.state.turn}`;
+    const currentCount = repetitionHistoryRef.current.get(key) ?? 0;
+    const nextCount = currentCount + 1;
+    repetitionHistoryRef.current.set(key, nextCount);
+
+    if (nextCount >= 3) {
       if (mode === 'online') {
-        // Automatically handle online draw
         handleFinishOnlineGame('draw');
       } else {
+        setGameResult({ winner: 'Durrang', reason: 'Uch martalik takrorlash', isDraw: true });
         setShowDrawOffer(true);
       }
     }
@@ -156,10 +161,15 @@ export function useChessGame() {
     // Bot mode: bot plays the current turn (both colors) in non-online modes
     const isBotBothTurn = botMode === 'both' && mode !== 'online' && mode !== 'puzzle';
 
-    if ((isAiTurn || isBotBothTurn) && !engineState.isCheckmate && !engineState.isStalemate && !showDrawOffer) {
+    if ((isAiTurn || isBotBothTurn) && !engineState.isCheckmate && !engineState.isStalemate && !showDrawOffer && !gameResult) {
       const botColor = engineState.turn;
+      if (botMoveLockRef.current) return;
+      botMoveLockRef.current = true;
+
       const timer = setTimeout(() => {
-        const aiMove = getBestAIMove(engineState.board, botColor, 'hard');
+        const legalMoves = engineRef.current.getLegalMoves();
+        const aiMove = legalMoves.length ? getBestAIMove(engineState.board, botColor, difficulty) : null;
+
         if (aiMove && engineRef.current.makeMove(aiMove)) {
           if (aiMove.captured) sounds.playCapture();
           else sounds.playMove();
@@ -167,10 +177,17 @@ export function useChessGame() {
           updateState();
           checkRepetition(engineRef.current.getFen());
         }
+        botMoveLockRef.current = false;
       }, 400);
-      return () => clearTimeout(timer);
+
+      return () => {
+        clearTimeout(timer);
+        botMoveLockRef.current = false;
+      };
     }
-  }, [engineState.turn, mode, difficulty, showDrawOffer, botMode]);
+    botMoveLockRef.current = false;
+    return undefined;
+  }, [engineState.turn, mode, difficulty, showDrawOffer, botMode, engineState.board, engineState.isCheckmate, engineState.isStalemate, gameResult]);
 
   // Realtime SSE Sync for Online Mode
   useEffect(() => {
@@ -230,6 +247,23 @@ export function useChessGame() {
           if (username) {
             fetchUserProfile(username);
           }
+          let winnerName = 'Durrang';
+          let isDraw = true;
+          if (room.winner === 'w') {
+            winnerName = 'Oqlar';
+            isDraw = false;
+          } else if (room.winner === 'b') {
+            winnerName = 'Qoralar';
+            isDraw = false;
+          } else if (room.winner && room.winner !== 'draw') {
+            winnerName = room.winner;
+            isDraw = false;
+          }
+          setGameResult({
+            winner: winnerName,
+            reason: room.winner === 'draw' ? 'Kelishuvga ko\'ra durrang' : 'Taslim bo\'ldi yoki shoh va mot',
+            isDraw: isDraw
+          });
           setShowGameOver(true);
         }
       } catch (err) {
@@ -256,6 +290,8 @@ export function useChessGame() {
   };
 
   const handleMakeMove = (from: Position, to: Position, promotionPiece?: PieceType) => {
+    if (gameResult || engineState.isCheckmate || engineState.isStalemate) return;
+
     const piece = engineState.board[from.r][from.c];
     if (!piece) return;
 
@@ -328,6 +364,8 @@ export function useChessGame() {
   const handleRestart = () => {
     engineRef.current = new ChessEngine();
     fenHistoryRef.current = [];
+    repetitionHistoryRef.current.clear();
+    setGameResult(null);
     updateState();
     setShowGameOver(false);
     setShowDrawOffer(false);
@@ -359,6 +397,8 @@ export function useChessGame() {
   const handleSelectPuzzle = (puzzle: ChessPuzzle) => {
     engineRef.current = new ChessEngine(puzzle.fen);
     fenHistoryRef.current = [];
+    repetitionHistoryRef.current.clear();
+    setGameResult(null);
     setMode('puzzle');
     updateState();
     setShowPuzzlesModal(false);
@@ -369,7 +409,7 @@ export function useChessGame() {
   const saveRoomHistory = (code: string, isPrivate: boolean, status: 'waiting' | 'active' | 'finished', opponentName?: string | null) => {
     if (!username) return;
     try {
-      const key = `apex_chess_room_history_${username}`;
+      const key = `shohmot_room_history_${username}`;
       const stored = localStorage.getItem(key);
       const existing: Array<{code: string; isPrivate: boolean; status: string; createdAt: number; opponentName?: string}> = stored ? JSON.parse(stored) : [];
       const filtered = existing.filter(e => e.code !== code);
@@ -476,6 +516,12 @@ export function useChessGame() {
     }
   };
 
+  const handleDeclineDraw = () => {
+    setShowDrawOffer(false);
+    setGameResult(null);
+    repetitionHistoryRef.current.clear();
+  };
+
   return {
     engineRef, engineState, mode, setMode, difficulty, setDifficulty, soundEnabled, setSoundEnabled, username, handleLogin,
     pendingPromotion, setPendingPromotion, showGameOver, setShowGameOver, showOnlineModal, setShowOnlineModal,
@@ -485,5 +531,7 @@ export function useChessGame() {
     handleJoinRoom, handleCreateRoom, handleFinishOnlineGame,
     botMode, handleSwitchToBot,
     isPlaying, setIsPlaying, handleExitGame,
+    gameResult, setGameResult,
+    handleDeclineDraw,
   };
 }

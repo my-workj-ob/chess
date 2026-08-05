@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center space-x-2">
         <span className="text-2xl text-violet-500 drop-shadow-[0_0_8px_rgba(139,92,246,0.4)]">♟️</span>
         <h1 className="text-lg font-extrabold tracking-wider text-slate-100 font-sans">
-          APEX<span className="text-amber-500">CHESS</span>
+          SHOH<span className="text-amber-500">MOT</span>
         </h1>
       </div>
 

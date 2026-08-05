@@ -189,6 +189,18 @@ function calculateEloChange(ratingW: number, ratingB: number, outcome: 'w' | 'b'
   return { changeW, changeB };
 }
 
+function normalizeOutcome(outcome: string | null, whitePlayer: string | null, blackPlayer: string | null): 'w' | 'b' | 'draw' {
+  if (!outcome || outcome === 'draw' || outcome === 'Draw') return 'draw';
+
+  const value = outcome.toLowerCase().trim();
+  if (value === 'w' || value === 'white') return 'w';
+  if (value === 'b' || value === 'black') return 'b';
+  if (whitePlayer && value === whitePlayer.toLowerCase()) return 'w';
+  if (blackPlayer && value === blackPlayer.toLowerCase()) return 'b';
+
+  return 'draw';
+}
+
 // --- ROOM OPERATIONS ---
 
 export async function createRoom(code: string, fen: string, whitePlayer: string, isPrivate: boolean): Promise<GameRoom> {
@@ -335,13 +347,7 @@ export async function updateRoomMove(
     const blackUser = await getUser(existingRoom.black_player);
 
     if (whiteUser && blackUser) {
-      // outcome can be 'w', 'b', 'draw' (or map winner name)
-      let outcome: 'w' | 'b' | 'draw' = 'draw';
-      if (winner === 'White' || winner === 'w' || winner === existingRoom.white_player) {
-        outcome = 'w';
-      } else if (winner === 'Black' || winner === 'b' || winner === existingRoom.black_player) {
-        outcome = 'b';
-      }
+      const outcome = normalizeOutcome(winner, existingRoom.white_player, existingRoom.black_player);
 
       const { changeW, changeB } = calculateEloChange(whiteUser.rating, blackUser.rating, outcome);
 

@@ -9,7 +9,10 @@ interface DraggablePieceProps {
   row: number;
   col: number;
   isSelected: boolean;
+  canDrag?: boolean;
   onDragStart: (r: number, c: number) => void;
+  onDragPreview?: (fromR: number, fromC: number, toR: number, toC: number) => void;
+  onDragClear?: () => void;
   onDrop?: (fromR: number, fromC: number, toR: number, toC: number) => void;
   onClick: (r: number, c: number) => void;
 }
@@ -19,7 +22,10 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
   row,
   col,
   isSelected,
+  canDrag = true,
   onDragStart,
+  onDragPreview,
+  onDragClear,
   onDrop,
   onClick,
 }) => {
@@ -29,93 +35,116 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
   const [hasMovedSignificant, setHasMovedSignificant] = useState(false);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Only drag with left mouse click or touch pointer
     if (e.button !== 0) return;
-    
-    // Highlight / select piece immediately on press
-    onClick(row, col);
-    onDragStart(row, col);
+    if (!canDrag) return;
 
+    onDragStart(row, col);
     setIsDragging(true);
     setStartPos({ x: e.clientX, y: e.clientY });
     setOffset({ x: 0, y: 0 });
     setHasMovedSignificant(false);
-    
+
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    
+
     const dx = e.clientX - startPos.x;
     const dy = e.clientY - startPos.y;
-    
-    // Threshold of 5 pixels to differentiate dragging from tapping
+
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
       setHasMovedSignificant(true);
     }
-    
+
     setOffset({ x: dx, y: dy });
+
+    const board = e.currentTarget.closest('[data-board-root]');
+    if (board && onDragPreview) {
+      const rect = board.getBoundingClientRect();
+      const cellSize = rect.width / 8;
+      const localX = e.clientX - rect.left;
+      const localY = e.clientY - rect.top;
+      const toC = Math.min(7, Math.max(0, Math.floor(localX / cellSize)));
+      const toR = Math.min(7, Math.max(0, Math.floor(localY / cellSize)));
+      onDragPreview(row, col, toR, toC);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    
+
+    const moved = hasMovedSignificant;
     setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    
+
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+
     const finalX = e.clientX;
     const finalY = e.clientY;
-
-    // Reset offsets
     setOffset({ x: 0, y: 0 });
+    if (onDragClear) onDragClear();
 
-    if (hasMovedSignificant && onDrop) {
-      // Find element under pointer (ignoring the piece itself via pointerEvents: none)
-      const element = document.elementFromPoint(finalX, finalY);
-      const square = element?.closest('[data-row]');
-      if (square) {
-        const toR = parseInt(square.getAttribute('data-row') || '', 10);
-        const toC = parseInt(square.getAttribute('data-col') || '', 10);
-        
-        if (!isNaN(toR) && !isNaN(toC) && (toR !== row || toC !== col)) {
+    if (moved && onDrop) {
+      const board = e.currentTarget.closest('[data-board-root]');
+      if (board) {
+        const rect = board.getBoundingClientRect();
+        const cellSize = rect.width / 8;
+        const localX = finalX - rect.left;
+        const localY = finalY - rect.top;
+        const toC = Math.min(7, Math.max(0, Math.floor(localX / cellSize)));
+        const toR = Math.min(7, Math.max(0, Math.floor(localY / cellSize)));
+
+        if (toR !== row || toC !== col) {
           onDrop(row, col, toR, toC);
           return;
         }
       }
     }
+
+    if (!moved) {
+      onClick(row, col);
+    }
   };
 
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ r: row, c: col }));
-    e.dataTransfer.effectAllowed = 'move';
-    onDragStart(row, col);
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    setOffset({ x: 0, y: 0 });
+    setHasMovedSignificant(false);
+    if (onDragClear) onDragClear();
   };
 
   const style: React.CSSProperties = isDragging && hasMovedSignificant ? {
     transform: `translate(${offset.x}px, ${offset.y}px)`,
     zIndex: 50,
     position: 'relative',
-    pointerEvents: 'none', // Allows elementFromPoint to hit the square behind the piece
-    opacity: 0.85,
+    pointerEvents: 'none',
   } : {};
 
   return (
     <div
-      draggable
-      onDragStart={handleDragStart}
+      draggable={false}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onClick={(e) => {
+        // Bosish (tap/click) logikasi to'liq pointerUp ichida hal qilinadi.
+        // Bu handler faqat brauzerning o'z ichki "click" hodisasi
+        // doskaga (SquareContainer) yugurib, onClick'ni QAYTA chaqirib
+        // yubormasligi uchun kerak — shu ikkilanish tanlashni
+        // darhol bekor qilib qo'yayotgan bug edi.
         e.stopPropagation();
-        // Only click if it wasn't a drag release
-        if (!hasMovedSignificant) {
-          onClick(row, col);
-        }
       }}
-      style={style}
-      className={`w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-transform duration-75 p-1 touch-none ${
+      style={{
+        ...style,
+        touchAction: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+      }}
+      className={`w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-all duration-75 p-1 touch-none ${
         isSelected && (!isDragging || !hasMovedSignificant)
           ? 'scale-125 z-30 drop-shadow-[0_0_12px_rgba(245,158,11,0.9)]'
           : 'hover:scale-105 z-10'

@@ -1,16 +1,23 @@
 import { BoardState, Move, PieceColor } from './types';
-import { PIECE_VALUES, PAWN_TABLE, KNIGHT_TABLE } from './constants';
+import { PIECE_VALUES, PAWN_TABLE, KNIGHT_TABLE, BISHOP_TABLE, ROOK_TABLE, QUEEN_TABLE, KING_TABLE } from './constants';
 import { generateLegalMoves, makeHypotheticalMove, isKingInCheck } from './moveGenerator';
 
 export function evaluateBoard(board: BoardState, color: PieceColor): number {
   let score = 0;
   const enemyColor: PieceColor = color === 'w' ? 'b' : 'w';
 
-  // Checkmate / Check incentives
+  // Checkmate / Check incentives (if enemy is mated/checked)
   if (isKingInCheck(board, enemyColor)) {
     const enemyMoves = generateLegalMoves(board, enemyColor, { w: { ks: true, qs: true }, b: { ks: true, qs: true } }, null);
     if (enemyMoves.length === 0) return 100000; // Deliver Mate!
     score += 150; // Check bonus
+  }
+
+  // Checkmate / Check penalties (if AI itself is mated/checked)
+  if (isKingInCheck(board, color)) {
+    const myMoves = generateLegalMoves(board, color, { w: { ks: true, qs: true }, b: { ks: true, qs: true } }, null);
+    if (myMoves.length === 0) return -100000; // Avoid being Mated!
+    score -= 150; // Check penalty
   }
 
   for (let r = 0; r < 8; r++) {
@@ -20,6 +27,10 @@ export function evaluateBoard(board: BoardState, color: PieceColor): number {
         let val = PIECE_VALUES[p.type] || 0;
         if (p.type === 'p') val += p.color === 'w' ? PAWN_TABLE[r][c] : PAWN_TABLE[7 - r][c];
         else if (p.type === 'n') val += p.color === 'w' ? KNIGHT_TABLE[r][c] : KNIGHT_TABLE[7 - r][c];
+        else if (p.type === 'b') val += p.color === 'w' ? BISHOP_TABLE[r][c] : BISHOP_TABLE[7 - r][c];
+        else if (p.type === 'r') val += p.color === 'w' ? ROOK_TABLE[r][c] : ROOK_TABLE[7 - r][c];
+        else if (p.type === 'q') val += p.color === 'w' ? QUEEN_TABLE[r][c] : QUEEN_TABLE[7 - r][c];
+        else if (p.type === 'k') val += p.color === 'w' ? KING_TABLE[r][c] : KING_TABLE[7 - r][c];
 
         if (p.color === color) score += val;
         else score -= val;
@@ -98,6 +109,10 @@ export function getBestAIMove(
   castling: any = { w: { ks: true, qs: true }, b: { ks: true, qs: true } },
   enPassant: any = null
 ): Move | null {
-  const depth = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
-  return minimax(board, depth, -Infinity, Infinity, true, aiColor, castling, enPassant).move;
+  const legalMoves = generateLegalMoves(board, aiColor, castling, enPassant);
+  if (!legalMoves.length) return null;
+
+  const depth = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 3 : 4;
+  const bestMove = minimax(board, depth, -Infinity, Infinity, true, aiColor, castling, enPassant).move;
+  return bestMove || legalMoves[0];
 }

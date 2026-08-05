@@ -151,5 +151,7 @@ export class ChessEngine {
     this.state.board = newBoard;
     this.state.turn = (parts[1] as PieceColor) || 'w';
     this.state.isCheck = isKingInCheck(this.state.board, this.state.turn);
+    this.state.isCheckmate = false;
+    this.state.isStalemate = false;
   }
 }

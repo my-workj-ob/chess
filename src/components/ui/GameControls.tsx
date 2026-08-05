@@ -67,11 +67,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
         <button
           onClick={onHint}
           disabled={mode === 'puzzle' || botMode === 'both'}
-          className="relative flex flex-col items-center justify-center p-1.5 h-[50px] rounded-xl bg-[#111827] border border-amber-500/40 hover:bg-[#1f2937]/30 active:scale-95 disabled:opacity-40 transition"
+          className="flex flex-col items-center justify-center p-1.5 h-[50px] rounded-xl bg-[#111827] border border-amber-500/40 hover:bg-[#1f2937]/30 active:scale-95 disabled:opacity-40 transition"
         >
-          <span className="absolute -top-1 right-1 px-1 py-0.5 bg-amber-500 text-slate-950 text-[7px] font-black rounded-lg leading-none uppercase tracking-wider">
-            Ad
-          </span>
           <Lightbulb size={14} className="stroke-[2] mb-0.5 text-amber-500" />
           <span className="text-[9px] font-black text-slate-300 leading-none">Maslahat</span>
         </button>

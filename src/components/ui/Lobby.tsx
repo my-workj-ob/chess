@@ -42,7 +42,7 @@ export const Lobby: React.FC<LobbyProps> = ({
 
   const loadRoomHistory = useCallback(() => {
     try {
-      const key = 'apex_chess_room_history_' + username;
+      const key = 'shohmot_room_history_' + username;
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed: RoomHistoryEntry[] = JSON.parse(stored);

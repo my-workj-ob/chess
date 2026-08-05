@@ -30,6 +30,7 @@ export default function Home() {
     handleJoinRoom, handleCreateRoom, handleFinishOnlineGame,
     botMode, handleSwitchToBot,
     isPlaying, setIsPlaying, handleExitGame,
+    gameResult, setGameResult, handleDeclineDraw,
   } = useChessGame();
 
   React.useEffect(() => {
@@ -135,34 +136,30 @@ export default function Home() {
   }
 
   // Display names based on mode and color
-  let topPlayerName = 'Raqib (Qora)';
+  let topPlayerName = 'Raqib';
   let topPlayerAvatar = '👤';
-  let bottomPlayerName = username ? `${username} (Oqlar)` : 'Siz (Oqlar)';
+  let bottomPlayerName = username || 'Siz';
   let bottomPlayerAvatar = '👤';
 
   if (botMode === 'both' && mode !== 'online') {
-    // Bot vs Bot mode
-    topPlayerName = '🤖 ApexBot (Qoralar)';
+    topPlayerName = 'Bot';
     topPlayerAvatar = '🤖';
-    bottomPlayerName = '🤖 ApexBot (Oqlar)';
+    bottomPlayerName = 'Bot';
     bottomPlayerAvatar = '🤖';
   } else if (mode === 'ai') {
-    topPlayerName = `StockBot AI (${difficulty === 'easy' ? 'Oson' : difficulty === 'medium' ? "O'rta" : 'Qiyin'})`;
+    topPlayerName = `Bot ${difficulty === 'easy' ? 'Oson' : difficulty === 'medium' ? 'O\'rta' : 'Qiyin'}`;
     topPlayerAvatar = '🤖';
   } else if (mode === 'puzzle') {
-    topPlayerName = 'Shaxmat Masalasi';
+    topPlayerName = 'Masala';
     topPlayerAvatar = '🧩';
-    bottomPlayerName = username ? `${username} (${userRating})` : 'Siz';
+    bottomPlayerName = username ? `${username} ${userRating}` : 'Siz';
   } else if (mode === 'online') {
-    // Top is opponent, bottom is us
     if (playerColor === 'b') {
-      // We are Black (bottom), White is top (opponent)
-      topPlayerName = opponentName ? `${opponentName} (Oq)` : 'Kutilmoqda...';
-      bottomPlayerName = `${username} (Qora)`;
+      topPlayerName = opponentName || 'Kutilmoqda...';
+      bottomPlayerName = username || 'Siz';
     } else {
-      // We are White (bottom), Black is top (opponent)
-      topPlayerName = opponentName ? `${opponentName} (Qora)` : 'Kutilmoqda (Qora)...';
-      bottomPlayerName = `${username} (Oq)`;
+      topPlayerName = opponentName || 'Kutilmoqda...';
+      bottomPlayerName = username || 'Siz';
     }
   }
 
@@ -171,6 +168,82 @@ export default function Home() {
 
   const isTopTurn = engineState.turn === topColor;
   const isBottomTurn = engineState.turn === bottomColor;
+
+  // Determine game results
+  const isCheckmate = engineState.isCheckmate;
+  const isStalemate = engineState.isStalemate;
+  const isFinished = Boolean(isCheckmate || isStalemate || gameResult || (mode === 'online' && roomStatus === 'finished'));
+
+  let winnerColor: 'w' | 'b' | 'draw' | null = null;
+  let loserColor: 'w' | 'b' | null = null;
+  let reasonText = '';
+
+  if (isFinished) {
+    if (isCheckmate) {
+      loserColor = engineState.turn;
+      winnerColor = engineState.turn === 'w' ? 'b' : 'w';
+      reasonText = 'Shoh va mat';
+    } else if (isStalemate) {
+      winnerColor = 'draw';
+      reasonText = 'Pat (yurish yo\'q)';
+    } else if (gameResult) {
+      if (gameResult.isDraw || gameResult.winner === 'Durrang' || gameResult.winner === 'draw') {
+        winnerColor = 'draw';
+        reasonText = gameResult.reason || 'Durrang';
+      } else {
+        const winVal = gameResult.winner.toLowerCase();
+        if (winVal === 'w' || winVal === 'oqlar' || winVal === 'white') {
+          winnerColor = 'w';
+          loserColor = 'b';
+        } else if (winVal === 'b' || winVal === 'qoralar' || winVal === 'black') {
+          winnerColor = 'b';
+          loserColor = 'w';
+        } else {
+          if (username && winVal === username.toLowerCase()) {
+            winnerColor = playerColor || 'w';
+            loserColor = winnerColor === 'w' ? 'b' : 'w';
+          } else if (opponentName && winVal === opponentName.toLowerCase()) {
+            winnerColor = playerColor === 'w' ? 'b' : 'w';
+            loserColor = winnerColor === 'w' ? 'b' : 'w';
+          } else {
+            winnerColor = 'w';
+            loserColor = 'b';
+          }
+        }
+        reasonText = gameResult.reason || 'O\'yin yakunlandi';
+      }
+    }
+  }
+
+  let topResultStatus: 'winner' | 'loser' | 'draw' | null = null;
+  let bottomResultStatus: 'winner' | 'loser' | 'draw' | null = null;
+  let topResultReason: string | null = null;
+  let bottomResultReason: string | null = null;
+
+  if (isFinished) {
+    if (winnerColor === 'draw') {
+      topResultStatus = 'draw';
+      bottomResultStatus = 'draw';
+      topResultReason = reasonText;
+      bottomResultReason = reasonText;
+    } else {
+      if (winnerColor === topColor) {
+        topResultStatus = 'winner';
+        topResultReason = reasonText;
+      } else if (loserColor === topColor) {
+        topResultStatus = 'loser';
+        topResultReason = reasonText;
+      }
+
+      if (winnerColor === bottomColor) {
+        bottomResultStatus = 'winner';
+        bottomResultReason = reasonText;
+      } else if (loserColor === bottomColor) {
+        bottomResultStatus = 'loser';
+        bottomResultReason = reasonText;
+      }
+    }
+  }
 
   return (
     <>
@@ -220,8 +293,16 @@ export default function Home() {
                 isCheck={isTopTurn && engineState.isCheck}
                 capturedPieces={[]}
                 activeChat={topChat}
-                rating={mode === 'online' ? (opponentRating || 1200) : 1200}
+                rating={
+                  mode === 'online'
+                    ? (opponentRating || 1200)
+                    : mode === 'ai'
+                      ? (difficulty === 'easy' ? 800 : difficulty === 'medium' ? 1500 : 2200)
+                      : 1200
+                }
                 showSettings={false}
+                gameResultStatus={topResultStatus}
+                gameResultReason={topResultReason}
               />
             </div>
 
@@ -233,8 +314,15 @@ export default function Home() {
                   legalMoves={engineRef.current.getLegalMoves()}
                   lastMove={engineState.moveHistory[engineState.moveHistory.length - 1] || null}
                   kingCheckSquare={null}
+                  currentTurn={engineState.turn}
                   onMakeMove={handleMakeMove}
                   orientation={playerColor || 'w'}
+                  isFinished={isFinished}
+                  winnerColor={winnerColor}
+                  loserColor={loserColor}
+                  reasonText={reasonText}
+                  onRestart={handleRestartAction}
+                  mode={mode}
                 />
               </div>
             </div>
@@ -251,11 +339,15 @@ export default function Home() {
                 activeChat={bottomChat}
                 rating={userRating}
                 showProfile={false}
+                gameResultStatus={bottomResultStatus}
+                gameResultReason={bottomResultReason}
               />
             </div>
 
+
+
             {/* Chat emojis Reactions for online */}
-            {mode === 'online' && roomStatus === 'active' && (
+            {mode === 'online' && roomStatus === 'active' && !isFinished && (
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-2 space-y-1.5 shrink-0">
                 <div className="flex justify-between gap-1 overflow-x-auto pb-0.5 scrollbar-none">
                   {['😀', '😂', '👍', '👎', '🔥', '👏', '🧠', '😮', '😠', '👑'].map((emoji) => (
@@ -456,8 +548,12 @@ export default function Home() {
 
       {showDrawOffer && (
         <DrawOfferModal
-          onAccept={() => { setShowDrawOffer(false); setShowGameOver(true); }}
-          onDecline={() => setShowDrawOffer(false)}
+          onAccept={() => {
+            setShowDrawOffer(false);
+            setGameResult({ winner: 'Durrang', reason: 'Uch martalik takrorlash', isDraw: true });
+            setShowGameOver(true);
+          }}
+          onDecline={handleDeclineDraw}
         />
       )}
 
@@ -471,14 +567,7 @@ export default function Home() {
         />
       )}
 
-      {(engineState.isCheckmate || engineState.isStalemate || showGameOver) && (
-        <GameOverModal
-          winner={engineState.turn === 'w' ? 'Qoralar' : 'Oqlar'}
-          isStalemate={engineState.isStalemate || showDrawOffer}
-          onRestart={handleRestartAction}
-          onClose={() => setShowGameOver(false)}
-        />
-      )}
+      {/* GameOverModal completely removed to avoid popup overlay */}
 
       {showOnlineModal && (
         <OnlineRoomModal

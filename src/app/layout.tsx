@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Apex Chess - Aqlli Shaxmat O\'yini',
-  description: '0-dependency custom engine bilan jihozlangan 100% responsive va realtime shaxmat o\'yini.',
+  title: 'ShohMot - Real vaqtda Onlayn Shaxmat o\'yini',
+  description: 'Zamonoviy dizayn, kuchli sun\'iy intellekt va onlayn do\'stlar bilan o\'ynash uchun real vaqtda ishlaydigan milliy shaxmat platformasi.',
 };
 
 export const viewport: Viewport = {

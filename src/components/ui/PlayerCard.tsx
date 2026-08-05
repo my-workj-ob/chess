@@ -15,6 +15,8 @@ interface PlayerCardProps {
   rating?: number;
   showSettings?: boolean;
   showProfile?: boolean;
+  gameResultStatus?: 'winner' | 'loser' | 'draw' | null;
+  gameResultReason?: string | null;
 }
 
 export const PlayerCard: React.FC<PlayerCardProps> = ({
@@ -28,16 +30,19 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   rating = 1200,
   showSettings = false,
   showProfile = false,
+  gameResultStatus = null,
+  gameResultReason = null,
 }) => {
   const isBot = avatar === '🤖';
 
+  // Determine card styles (always standard, no red/green alerts)
+  const cardStyle = isCurrentTurn
+    ? 'bg-[#111827] border-amber-500/50 shadow-md shadow-amber-500/5'
+    : 'bg-[#111827]/70 border-slate-900 opacity-90';
+
   return (
     <div
-      className={`relative flex items-center justify-between p-3.5 rounded-[24px] border transition-all duration-200 ${
-        isCurrentTurn
-          ? 'bg-[#111827] border-amber-500/50 shadow-md shadow-amber-500/5'
-          : 'bg-[#111827]/70 border-slate-900 opacity-90'
-      }`}
+      className={`relative flex items-center justify-between p-3.5 rounded-[24px] border transition-all duration-200 ${cardStyle}`}
     >
       {/* Floating Chat Bubble */}
       {activeChat && (
@@ -77,7 +82,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
       {/* Right Actions */}
       <div className="flex items-center space-x-2">
-        {isCheck && isCurrentTurn && (
+        {isCheck && isCurrentTurn && !gameResultStatus && (
           <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-red-500/15 text-red-400 border border-red-500/30 rounded-lg animate-pulse">
             SHOH!
           </span>
@@ -96,7 +101,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           </button>
         )}
 
-        {isCurrentTurn && !showSettings && !showProfile && (
+        {isCurrentTurn && !showSettings && !showProfile && !gameResultStatus && (
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
         )}
       </div>

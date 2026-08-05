@@ -16,9 +16,9 @@ export const DrawOfferModal: React.FC<DrawOfferModalProps> = ({ onAccept, onDecl
           <HelpCircle size={28} />
         </div>
 
-        <h2 className="text-lg font-bold text-slate-100 mb-1">Draw Offered</h2>
+        <h2 className="text-lg font-bold text-slate-100 mb-1">Durrang taklif etildi</h2>
         <p className="text-xs text-slate-300 mb-6 font-medium leading-relaxed">
-          The position has been repeated 3 times. Do you agree to a draw?
+          Ushbu pozitsiya 3 marta takrorlandi. Durrangga rozimisiz?
         </p>
 
         <div className="space-y-2">
@@ -27,7 +27,7 @@ export const DrawOfferModal: React.FC<DrawOfferModalProps> = ({ onAccept, onDecl
             className="w-full flex items-center justify-center space-x-2 py-3 rounded-2xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 active:scale-95 transition"
           >
             <Check size={16} />
-            <span>Yes, Agree to Draw</span>
+            <span>Ha, durrangga roziman</span>
           </button>
 
           <button
@@ -35,7 +35,7 @@ export const DrawOfferModal: React.FC<DrawOfferModalProps> = ({ onAccept, onDecl
             className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-2xl bg-slate-800 text-slate-300 font-semibold text-xs hover:bg-slate-700 active:scale-95 transition"
           >
             <X size={16} />
-            <span>No, Keep Playing</span>
+            <span>Yo'q, o'yinni davom ettiramiz</span>
           </button>
         </div>
       </div>

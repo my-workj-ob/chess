@@ -6,6 +6,7 @@ import { Trophy, RefreshCw, Eye } from 'lucide-react';
 interface GameOverModalProps {
   winner: string;
   isStalemate: boolean;
+  reason?: string;
   onRestart: () => void;
   onClose: () => void;
 }
@@ -13,6 +14,7 @@ interface GameOverModalProps {
 export const GameOverModal: React.FC<GameOverModalProps> = ({
   winner,
   isStalemate,
+  reason,
   onRestart,
   onClose,
 }) => {
@@ -24,12 +26,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         <h2 className="text-xl font-bold text-slate-100 mb-1">
-          {isStalemate ? 'PAT! (Durang)' : 'MOT! G\'ALABA!'}
+          {isStalemate ? 'DURRANG' : 'G\'ALABA'}
         </h2>
-        <p className="text-xs text-slate-400 mb-6">
+        <p className="text-xs text-slate-400 mb-2">
           {isStalemate
-            ? 'Birorta ham qonuniy yurish qolmadi.'
-            : `${winner} g'alaba qozondi!`}
+            ? `${reason || 'Durang'}.`
+            : `${winner} g\'alaba qozondi.`}
+        </p>
+        <p className="text-[10px] text-slate-500 mb-6">
+          {isStalemate ? 'Hech kim yutolmadi.' : `${reason || 'Shoh va mat'}.`}
         </p>
 
         <div className="space-y-2">

@@ -10,6 +10,8 @@ interface SquareContainerProps {
   isLegalMove: boolean;
   isLastMove: boolean;
   isKingCheck: boolean;
+  isDropTarget?: boolean;
+  isDropValid?: boolean;
   onSquareClick: (r: number, c: number) => void;
   onDropPiece: (fromR: number, fromC: number, toR: number, toC: number) => void;
   children?: React.ReactNode;
@@ -27,6 +29,8 @@ export const SquareContainer: React.FC<SquareContainerProps> = ({
   isLegalMove,
   isLastMove,
   isKingCheck,
+  isDropTarget = false,
+  isDropValid = false,
   onSquareClick,
   onDropPiece,
   children,
@@ -58,9 +62,9 @@ export const SquareContainer: React.FC<SquareContainerProps> = ({
       onClick={() => onSquareClick(row, col)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`relative w-full h-full flex items-center justify-center transition-colors duration-150 ${
+      className={`relative w-full h-full flex items-center justify-center transition-all duration-150 ${
         isKingCheck ? '!bg-[#991B1B] animate-pulse' : ''
-      }`}
+      } ${isDropTarget && isDropValid ? 'ring-2 ring-emerald-400/80 ring-inset shadow-[inset_0_0_0_2px_rgba(16,185,129,0.8)]' : ''}`}
       style={{
         backgroundColor: isKingCheck
           ? undefined
