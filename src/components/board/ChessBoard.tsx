@@ -140,6 +140,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       col={c}
                       isSelected={isSelected}
                       onDragStart={(dr, dc) => setSelectedPos({ r: dr, c: dc })}
+                      onDrop={handleDropPiece}
                       onClick={handleSquareClick}
                     />
                   )}

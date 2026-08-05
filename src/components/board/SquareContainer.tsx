@@ -53,6 +53,8 @@ export const SquareContainer: React.FC<SquareContainerProps> = ({
 
   return (
     <div
+      data-row={row}
+      data-col={col}
       onClick={() => onSquareClick(row, col)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
