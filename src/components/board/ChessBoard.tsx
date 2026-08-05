@@ -104,7 +104,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       </div>
 
       {/* Board Outer Container — no padding, board fills full square */}
-      <div className={`theme-${boardTheme} w-full aspect-square max-w-[480px] mx-auto rounded-[20px] overflow-hidden shadow-2xl border-[5px] border-[#131B29] relative`}>
+      <div className={`theme-${boardTheme} w-full aspect-square max-w-[480px] mx-auto rounded-[20px] overflow-hidden shadow-2xl border-[5px] border-[#131B29] relative touch-none`}>
         {/* The 8x8 Board Grid — fills entire container */}
         <div className="w-full h-full grid grid-cols-8 grid-rows-8 overflow-hidden">
           {rows.map((r) =>
