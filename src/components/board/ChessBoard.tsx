@@ -5,6 +5,7 @@ import { BoardState, Move, Position, PieceColor } from '@/lib/engine/types';
 import { SquareContainer } from './SquareContainer';
 import { DraggablePiece } from './DraggablePiece';
 import { findKingPosition, isKingInCheck } from '@/lib/engine/moveGenerator';
+import { ChessBoard3D } from './ChessBoard3D';
 
 // Helper to trace attacking path to any target square (king or escape square)
 function getAttackerPathsToSquare(board: BoardState, targetPos: Position, attackerColor: PieceColor): Position[][] {
@@ -121,6 +122,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [dragTarget, setDragTarget] = useState<{ r: number; c: number; valid: boolean } | null>(null);
   const [boardTheme, setBoardTheme] = useState<'classic' | 'emerald' | 'cyberpunk' | 'wood'>('classic');
   const [showOverlay, setShowOverlay] = useState(false);
+  const [is3D, setIs3D] = useState(false);
 
   // Reset overlay to false when board changes (keeps overlay hidden by default)
   useEffect(() => {
@@ -131,6 +133,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('shohmot_board_theme') as any;
       if (saved) setBoardTheme(saved);
+      
+      const saved3D = localStorage.getItem('shohmot_board_view_3d');
+      if (saved3D) setIs3D(JSON.parse(saved3D));
     }
   }, []);
 
@@ -256,22 +261,42 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   return (
     <div className="space-y-2 max-w-md mx-auto w-full">
-      {/* Theme selection circles */}
+      {/* View (2D/3D) & Theme Selectors */}
       <div className="flex justify-between items-center px-1">
-        <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Doska mavzusi</span>
         <div className="flex items-center space-x-2">
-          {themes.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => handleThemeChange(t.id)}
-              className={`w-3.5 h-3.5 rounded-full border transition-all ${t.color} ${
-                boardTheme === t.id
-                  ? 'border-amber-400 scale-125 shadow-md shadow-amber-400/20'
-                  : 'border-slate-800 hover:scale-110'
-              }`}
-              title={t.label}
-            />
-          ))}
+          <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Ko'rinish</span>
+          <button
+            onClick={() => {
+              const next = !is3D;
+              setIs3D(next);
+              localStorage.setItem('shohmot_board_view_3d', JSON.stringify(next));
+            }}
+            className={`px-2.5 py-1 rounded-xl border text-[8px] font-black uppercase transition active:scale-95 ${
+              is3D
+                ? 'bg-violet-600 border-violet-500 text-white shadow-md shadow-violet-600/10'
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {is3D ? '3D' : '2D'}
+          </button>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider mr-2">Mavzu</span>
+          <div className="flex items-center space-x-2">
+            {themes.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleThemeChange(t.id)}
+                className={`w-3.5 h-3.5 rounded-full border transition-all ${t.color} ${
+                  boardTheme === t.id
+                    ? 'border-amber-400 scale-125 shadow-md shadow-amber-400/20'
+                    : 'border-slate-800 hover:scale-110'
+                }`}
+                title={t.label}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -280,228 +305,247 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         data-board-root
         className={`theme-${boardTheme} w-full aspect-square max-w-[480px] mx-auto rounded-[20px] overflow-hidden shadow-2xl border-[5px] border-[#131B29] relative touch-none`}
       >
-        {/* The 8x8 Board Grid — fills entire container */}
-        <div className="w-full h-full grid grid-cols-8 grid-rows-8 overflow-hidden">
-          {rows.map((r) =>
-            cols.map((c) => {
-              const piece = board[r][c];
-              const isDark = (r + c) % 2 === 1;
-              const isSelected = selectedPos?.r === r && selectedPos?.c === c;
-              const isLegal = targetMoves.some((m) => m.to.r === r && m.to.c === c);
-              const isLast = (lastMove?.from.r === r && lastMove?.from.c === c) || (lastMove?.to.r === r && lastMove?.to.c === c);
-              const isCheck = finalKingCheckSquare?.r === r && finalKingCheckSquare?.c === c;
-              const isDropTarget = dragTarget?.r === r && dragTarget?.c === c;
-              const canDragPiece = Boolean(piece && piece.color === currentTurn);
+        {is3D ? (
+          <ChessBoard3D
+            board={board}
+            legalMoves={legalMoves}
+            lastMove={lastMove}
+            kingCheckSquare={finalKingCheckSquare}
+            currentTurn={currentTurn}
+            onMakeMove={onMakeMove}
+            orientation={orientation}
+            isFinished={isFinished}
+            winnerColor={winnerColor}
+            loserColor={loserColor}
+            reasonText={reasonText}
+            theme={boardTheme}
+          />
+        ) : (
+          <>
+            {/* The 8x8 Board Grid — fills entire container */}
+            <div className="w-full h-full grid grid-cols-8 grid-rows-8 overflow-hidden">
+              {rows.map((r) =>
+                cols.map((c) => {
+                  const piece = board[r][c];
+                  const isDark = (r + c) % 2 === 1;
+                  const isSelected = selectedPos?.r === r && selectedPos?.c === c;
+                  const isLegal = targetMoves.some((m) => m.to.r === r && m.to.c === c);
+                  const isLast = (lastMove?.from.r === r && lastMove?.from.c === c) || (lastMove?.to.r === r && lastMove?.to.c === c);
+                  const isCheck = finalKingCheckSquare?.r === r && finalKingCheckSquare?.c === c;
+                  const isDropTarget = dragTarget?.r === r && dragTarget?.c === c;
+                  const canDragPiece = Boolean(piece && piece.color === currentTurn);
 
-              return (
-                <SquareContainer
-                  key={`${r}-${c}`}
-                  row={r}
-                  col={c}
-                  isDark={isDark}
-                  isSelected={isSelected}
-                  isLegalMove={isLegal}
-                  isLastMove={Boolean(isLast)}
-                  isKingCheck={Boolean(isCheck)}
-                  isDropTarget={Boolean(isDropTarget)}
-                  isDropValid={dragTarget?.valid ?? false}
-                  onSquareClick={handleSquareClick}
-                  onDropPiece={handleDropPiece}
-                  showRank={c === 0}
-                  showFile={r === 7}
-                  rankLabel={ranks[rows.indexOf(r)]}
-                  fileLabel={files[cols.indexOf(c)]}
-                >
-                  {piece && (
-                    <DraggablePiece
-                      piece={piece}
+                  return (
+                    <SquareContainer
+                      key={`${r}-${c}`}
                       row={r}
                       col={c}
+                      isDark={isDark}
                       isSelected={isSelected}
-                      canDrag={canDragPiece}
-                      onDragStart={(dr, dc) => {
-                        setSelectedPos({ r: dr, c: dc });
-                        setDraggingFrom({ r: dr, c: dc });
-                      }}
-                      onDragPreview={handleDragPreview}
-                      onDragClear={() => {
-                        setDragTarget(null);
-                        setDraggingFrom(null);
-                      }}
-                      onDrop={handleDropPiece}
-                      onClick={handleSquareClick}
-                    />
-                  )}
-                </SquareContainer>
-              );
-            })
-          )}
-        </div>
-
-        {/* SVG Checking Vectors / Attack paths */}
-        {(directPaths.length > 0 || escapePaths.length > 0) && (
-          <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
-            <defs>
-              <marker
-                id="arrow-red"
-                viewBox="0 0 10 10"
-                refX="6"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f43f5e" />
-              </marker>
-              <marker
-                id="arrow-amber"
-                viewBox="0 0 10 10"
-                refX="6"
-                refY="5"
-                markerWidth="5"
-                markerHeight="5"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f59e0b" />
-              </marker>
-            </defs>
-
-            {/* 1. Draw Escape Blocker Paths (Thinner, Amber) */}
-            {escapePaths.map((item, idx) => {
-              if (item.path.length < 2) return null;
-              const start = item.path[0];
-              const end = item.path[item.path.length - 1];
-
-              const x1 = (cols.indexOf(start.c) + 0.5) * 12.5;
-              const y1 = (rows.indexOf(start.r) + 0.5) * 12.5;
-              const x2 = (cols.indexOf(end.c) + 0.5) * 12.5;
-              const y2 = (rows.indexOf(end.r) + 0.5) * 12.5;
-
-              return (
-                <React.Fragment key={`escape-${idx}`}>
-                  <line
-                    x1={`${x1}%`}
-                    y1={`${y1}%`}
-                    x2={`${x2}%`}
-                    y2={`${y2}%`}
-                    stroke="#f59e0b"
-                    strokeWidth="2"
-                    strokeDasharray="4 3"
-                    opacity="0.65"
-                    markerEnd="url(#arrow-amber)"
-                  />
-                  {/* Small dot on the escape square */}
-                  <circle
-                    cx={`${x2}%`}
-                    cy={`${y2}%`}
-                    r="1.8%"
-                    fill="#f59e0b"
-                    opacity="0.8"
-                  />
-                </React.Fragment>
-              );
-            })}
-
-            {/* 2. Draw Direct Checker Paths (Thicker, Red) */}
-            {directPaths.map((path, idx) => {
-              if (path.length < 2) return null;
-              const start = path[0];
-              const end = path[path.length - 1];
-
-              const x1 = (cols.indexOf(start.c) + 0.5) * 12.5;
-              const y1 = (rows.indexOf(start.r) + 0.5) * 12.5;
-              const x2 = (cols.indexOf(end.c) + 0.5) * 12.5;
-              const y2 = (rows.indexOf(end.r) + 0.5) * 12.5;
-
-              return (
-                <React.Fragment key={`direct-${idx}`}>
-                  <line
-                    x1={`${x1}%`}
-                    y1={`${y1}%`}
-                    x2={`${x2}%`}
-                    y2={`${y2}%`}
-                    stroke="#f43f5e"
-                    strokeWidth="3.5"
-                    strokeDasharray="6 4"
-                    opacity="0.85"
-                    markerEnd="url(#arrow-red)"
-                  />
-                  <circle
-                    cx={`${x1}%`}
-                    cy={`${y1}%`}
-                    r="4.5%"
-                    fill="none"
-                    stroke="#f43f5e"
-                    strokeWidth="2"
-                    className="animate-ping"
-                    opacity="0.75"
-                  />
-                  <circle
-                    cx={`${x1}%`}
-                    cy={`${y1}%`}
-                    r="4.5%"
-                    fill="none"
-                    stroke="#f43f5e"
-                    strokeWidth="2.5"
-                    opacity="0.9"
-                  />
-                </React.Fragment>
-              );
-            })}
-          </svg>
-        )}
-
-        {/* Temporary Inspect Button */}
-        {!showOverlay && isFinished && (
-          <button
-            onClick={() => setShowOverlay(true)}
-            className="absolute top-3 right-3 z-30 px-2.5 py-1.5 rounded-xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md text-[10px] font-black text-amber-400 hover:text-white transition active:scale-95 shadow-xl flex items-center gap-1.5"
-          >
-            👁️ Natijani Ko'rish
-          </button>
-        )}
-
-        {/* Glassmorphic Overlay for Game Result */}
-        {isFinished && showOverlay && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/20 backdrop-blur-[2px] z-30 p-4 rounded-[15px] animate-fade-in">
-            <div className="bg-[#0b0f19]/90 border border-slate-800/80 backdrop-blur-md p-5 rounded-3xl max-w-[260px] w-full text-center shadow-2xl space-y-4 transform scale-100 transition-all duration-300">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                  O'YIN YAKUNLANDI
-                </span>
-                <h3 className="text-sm font-black text-white leading-tight">
-                  {winnerColor === 'draw'
-                    ? 'DURRANG'
-                    : (winnerColor === (orientation === 'b' ? 'w' : 'b') || winnerColor === 'b' && orientation === 'w' || winnerColor === 'w' && orientation === 'b')
-                      ? 'MAG\'LUBIYAT'
-                      : 'G\'ALABA!'}
-                </h3>
-              </div>
-              
-              <p className="text-[10px] text-slate-400 font-bold leading-normal">
-                {winnerColor === 'draw'
-                  ? `O'yin durrang bilan yakunlandi. Sabab: ${reasonText}`
-                  : (winnerColor === orientation)
-                    ? `Siz raqibni mag'lub etdingiz! Sabab: ${reasonText}`
-                    : `Siz mag'lub bo'ldingiz. Sabab: ${reasonText}`}
-              </p>
-
-              <div className="space-y-1.5 pt-1">
-                <button
-                  onClick={onRestart}
-                  className="w-full py-2.5 rounded-xl text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 active:scale-95 transition-all shadow-lg shadow-amber-500/10"
-                >
-                  {mode === 'online' ? 'Lobbyga Qaytish' : 'Yangi O\'yin Boshlash'}
-                </button>
-                <button
-                  onClick={() => setShowOverlay(false)}
-                  className="w-full py-2 rounded-xl text-[9px] font-black bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition"
-                >
-                  Doskani Ko'rish
-                </button>
-              </div>
+                      isLegalMove={isLegal}
+                      isLastMove={Boolean(isLast)}
+                      isKingCheck={Boolean(isCheck)}
+                      isDropTarget={Boolean(isDropTarget)}
+                      isDropValid={dragTarget?.valid ?? false}
+                      onSquareClick={handleSquareClick}
+                      onDropPiece={handleDropPiece}
+                      showRank={c === 0}
+                      showFile={r === 7}
+                      rankLabel={ranks[rows.indexOf(r)]}
+                      fileLabel={files[cols.indexOf(c)]}
+                    >
+                      {piece && (
+                        <DraggablePiece
+                          piece={piece}
+                          row={r}
+                          col={c}
+                          isSelected={isSelected}
+                          canDrag={canDragPiece}
+                          onDragStart={(dr, dc) => {
+                            setSelectedPos({ r: dr, c: dc });
+                            setDraggingFrom({ r: dr, c: dc });
+                          }}
+                          onDragPreview={handleDragPreview}
+                          onDragClear={() => {
+                            setDragTarget(null);
+                            setDraggingFrom(null);
+                          }}
+                          onDrop={handleDropPiece}
+                          onClick={handleSquareClick}
+                        />
+                      )}
+                    </SquareContainer>
+                  );
+                })
+              )}
             </div>
-          </div>
+
+            {/* SVG Checking Vectors / Attack paths */}
+            {(directPaths.length > 0 || escapePaths.length > 0) && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                <defs>
+                  <marker
+                    id="arrow-red"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f43f5e" />
+                  </marker>
+                  <marker
+                    id="arrow-amber"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="5"
+                    markerHeight="5"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f59e0b" />
+                  </marker>
+                </defs>
+
+                {/* 1. Draw Escape Blocker Paths (Thinner, Amber) */}
+                {escapePaths.map((item, idx) => {
+                  if (item.path.length < 2) return null;
+                  const start = item.path[0];
+                  const end = item.path[item.path.length - 1];
+
+                  const x1 = (cols.indexOf(start.c) + 0.5) * 12.5;
+                  const y1 = (rows.indexOf(start.r) + 0.5) * 12.5;
+                  const x2 = (cols.indexOf(end.c) + 0.5) * 12.5;
+                  const y2 = (rows.indexOf(end.r) + 0.5) * 12.5;
+
+                  return (
+                    <React.Fragment key={`escape-${idx}`}>
+                      <line
+                        x1={`${x1}%`}
+                        y1={`${y1}%`}
+                        x2={`${x2}%`}
+                        y2={`${y2}%`}
+                        stroke="#f59e0b"
+                        strokeWidth="2"
+                        strokeDasharray="4 3"
+                        opacity="0.65"
+                        markerEnd="url(#arrow-amber)"
+                      />
+                      {/* Small dot on the escape square */}
+                      <circle
+                        cx={`${x2}%`}
+                        cy={`${y2}%`}
+                        r="1.8%"
+                        fill="#f59e0b"
+                        opacity="0.8"
+                      />
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* 2. Draw Direct Checker Paths (Thicker, Red) */}
+                {directPaths.map((path, idx) => {
+                  if (path.length < 2) return null;
+                  const start = path[0];
+                  const end = path[path.length - 1];
+
+                  const x1 = (cols.indexOf(start.c) + 0.5) * 12.5;
+                  const y1 = (rows.indexOf(start.r) + 0.5) * 12.5;
+                  const x2 = (cols.indexOf(end.c) + 0.5) * 12.5;
+                  const y2 = (rows.indexOf(end.r) + 0.5) * 12.5;
+
+                  return (
+                    <React.Fragment key={`direct-${idx}`}>
+                      <line
+                        x1={`${x1}%`}
+                        y1={`${y1}%`}
+                        x2={`${x2}%`}
+                        y2={`${y2}%`}
+                        stroke="#f43f5e"
+                        strokeWidth="3.5"
+                        strokeDasharray="6 4"
+                        opacity="0.85"
+                        markerEnd="url(#arrow-red)"
+                      />
+                      <circle
+                        cx={`${x1}%`}
+                        cy={`${y1}%`}
+                        r="4.5%"
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth="2"
+                        className="animate-ping"
+                        opacity="0.75"
+                      />
+                      <circle
+                        cx={`${x1}%`}
+                        cy={`${y1}%`}
+                        r="4.5%"
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth="2.5"
+                        opacity="0.9"
+                      />
+                    </React.Fragment>
+                  );
+                })}
+              </svg>
+            )}
+
+            {/* Temporary Inspect Button */}
+            {!showOverlay && isFinished && (
+              <button
+                onClick={() => setShowOverlay(true)}
+                className="absolute top-3 right-3 z-30 px-2.5 py-1.5 rounded-xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md text-[10px] font-black text-amber-400 hover:text-white transition active:scale-95 shadow-xl flex items-center gap-1.5"
+              >
+                👁️ Natijani Ko'rish
+              </button>
+            )}
+
+            {/* Glassmorphic Overlay for Game Result */}
+            {isFinished && showOverlay && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/20 backdrop-blur-[2px] z-30 p-4 rounded-[15px] animate-fade-in">
+                <div className="bg-[#0b0f19]/90 border border-slate-800/80 backdrop-blur-md p-5 rounded-3xl max-w-[260px] w-full text-center shadow-2xl space-y-4 transform scale-100 transition-all duration-300">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
+                      O'YIN YAKUNLANDI
+                    </span>
+                    <h3 className="text-sm font-black text-white leading-tight">
+                      {winnerColor === 'draw'
+                        ? 'DURRANG'
+                        : (winnerColor === (orientation === 'b' ? 'w' : 'b') || winnerColor === 'b' && orientation === 'w' || winnerColor === 'w' && orientation === 'b')
+                          ? 'MAG\'LUBIYAT'
+                          : 'G\'ALABA!'}
+                    </h3>
+                  </div>
+                  
+                  <p className="text-[10px] text-slate-400 font-bold leading-normal">
+                    {winnerColor === 'draw'
+                      ? `O'yin durrang bilan yakunlandi. Sabab: ${reasonText}`
+                      : (winnerColor === orientation)
+                        ? `Siz raqibni mag'lub etdingiz! Sabab: ${reasonText}`
+                        : `Siz mag'lub bo'ldingiz. Sabab: ${reasonText}`}
+                  </p>
+
+                  <div className="space-y-1.5 pt-1">
+                    <button
+                      onClick={onRestart}
+                      className="w-full py-2.5 rounded-xl text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 active:scale-95 transition-all shadow-lg shadow-amber-500/10"
+                    >
+                      {mode === 'online' ? 'Lobbyga Qaytish' : 'Yangi O\'yin Boshlash'}
+                    </button>
+                    <button
+                      onClick={() => setShowOverlay(false)}
+                      className="w-full py-2 rounded-xl text-[9px] font-black bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition"
+                    >
+                      Doskani Ko'rish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

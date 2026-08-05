@@ -38,7 +38,6 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
     if (e.button !== 0) return;
     if (!canDrag) return;
 
-    onDragStart(row, col);
     setIsDragging(true);
     setStartPos({ x: e.clientX, y: e.clientY });
     setOffset({ x: 0, y: 0 });
@@ -54,20 +53,25 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
     const dy = e.clientY - startPos.y;
 
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-      setHasMovedSignificant(true);
+      if (!hasMovedSignificant) {
+        onDragStart(row, col);
+        setHasMovedSignificant(true);
+      }
     }
 
-    setOffset({ x: dx, y: dy });
+    if (hasMovedSignificant) {
+      setOffset({ x: dx, y: dy });
 
-    const board = e.currentTarget.closest('[data-board-root]');
-    if (board && onDragPreview) {
-      const rect = board.getBoundingClientRect();
-      const cellSize = rect.width / 8;
-      const localX = e.clientX - rect.left;
-      const localY = e.clientY - rect.top;
-      const toC = Math.min(7, Math.max(0, Math.floor(localX / cellSize)));
-      const toR = Math.min(7, Math.max(0, Math.floor(localY / cellSize)));
-      onDragPreview(row, col, toR, toC);
+      const board = e.currentTarget.closest('[data-board-root]');
+      if (board && onDragPreview) {
+        const rect = board.getBoundingClientRect();
+        const cellSize = rect.width / 8;
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+        const toC = Math.min(7, Math.max(0, Math.floor(localX / cellSize)));
+        const toR = Math.min(7, Math.max(0, Math.floor(localY / cellSize)));
+        onDragPreview(row, col, toR, toC);
+      }
     }
   };
 
