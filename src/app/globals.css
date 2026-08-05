@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), sans-serif;
+}
+
+:root {
+  --color-board-light: #708096;
+  --color-board-dark: #2c3545;
+  --color-board-selected: #c87a2a;
+  --color-board-last: #b57026;
+  --color-board-text-light: #2c3545;
+  --color-board-text-dark: #708096;
+}
+
+.theme-emerald {
+  --color-board-light: #eeeed2;
+  --color-board-dark: #769656;
+  --color-board-selected: #bac964;
+  --color-board-last: #baca44;
+  --color-board-text-light: #769656;
+  --color-board-text-dark: #eeeed2;
+}
+
+.theme-cyberpunk {
+  --color-board-light: #1e1b4b;
+  --color-board-dark: #4c1d95;
+  --color-board-selected: #ec4899;
+  --color-board-last: #db2777;
+  --color-board-text-light: #4c1d95;
+  --color-board-text-dark: #c084fc;
+}
+
+.theme-wood {
+  --color-board-light: #f0d9b5;
+  --color-board-dark: #b58863;
+  --color-board-selected: #829769;
+  --color-board-last: #b5a03b;
+  --color-board-text-light: #b58863;
+  --color-board-text-dark: #f0d9b5;
+}
+
+@layer base {
+  html, body {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+    background-color: #070A13;
+  }
+}
+
+/* Custom Scrollbar for Drawer Modals */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.8);
+  border-radius: 4px;
+}
