@@ -227,7 +227,7 @@ export default function Home() {
 
             {/* Chessboard Wrapper with touch-none */}
             <div className="w-full flex-1 flex items-center justify-center min-h-0 touch-none py-1">
-              <div className="w-full max-w-[420px] aspect-square flex items-center justify-center">
+              <div className="w-[88vw] max-w-[340px] sm:max-w-[420px] aspect-square flex items-center justify-center">
                 <ChessBoard
                   board={engineState.board}
                   legalMoves={engineRef.current.getLegalMoves()}
