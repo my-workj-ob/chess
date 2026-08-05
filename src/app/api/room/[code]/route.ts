@@ -23,8 +23,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
 
     const updatedMoves = [...room.moves, move];
     await updateRoomMove(code.toUpperCase(), fen, turn, updatedMoves, status || 'active', winner || null);
+    const freshRoom = await getRoom(code.toUpperCase());
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, room: freshRoom });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

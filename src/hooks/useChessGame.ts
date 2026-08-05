@@ -29,6 +29,7 @@ export function useChessGame() {
 
   // Bot switching state: tracks whether bot is playing both sides (only for non-online)
   const [botMode, setBotMode] = useState<'none' | 'both'>('none');
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Position; to: Position } | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
@@ -39,6 +40,9 @@ export function useChessGame() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
 
   const fenHistoryRef = useRef<string[]>([]);
+  const lastAppliedRemoteFenRef = useRef<string | null>(null);
+  const lastRemoteUpdateRef = useRef<number | null>(null);
+  const roomStatusRef = useRef<'waiting' | 'active' | 'finished' | null>(null);
 
   // Fetch or register user ELO profile
   const fetchUserProfile = async (name: string) => {
@@ -77,11 +81,15 @@ export function useChessGame() {
         }
 
         if (savedMode === 'online' && savedRoomCode) {
-          handleJoinRoom(savedRoomCode, saved).catch(() => {
-            localStorage.removeItem('apex_chess_room_code');
-            setRoomCode(null);
-            setMode('ai');
-          });
+          handleJoinRoom(savedRoomCode, saved)
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch(() => {
+              localStorage.removeItem('apex_chess_room_code');
+              setRoomCode(null);
+              setMode('ai');
+            });
         }
       } else {
         setShowLoginModal(true);
@@ -100,6 +108,10 @@ export function useChessGame() {
       }
     }
   }, [mode, roomCode]);
+
+  useEffect(() => {
+    roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
 
   // Clear lastChat bubble after 3 seconds
   useEffect(() => {
@@ -162,57 +174,71 @@ export function useChessGame() {
 
   // Realtime SSE Sync for Online Mode
   useEffect(() => {
-    if (mode === 'online' && roomCode) {
-      const eventSource = new EventSource(`/api/room/${roomCode}/stream`);
-      eventSource.onmessage = (event) => {
-        try {
-          const room = JSON.parse(event.data);
-          if (room) {
-            // Update board FEN if it changed
-            if (room.fen && room.fen !== engineRef.current.getFen()) {
-              engineRef.current.loadFen(room.fen);
-              sounds.playMove();
-              updateState();
-            }
+    if (mode !== 'online' || !roomCode) return;
 
-            // Sync room status
-            const oldStatus = roomStatus;
-            setRoomStatus(room.status);
-            setLastChat(room.last_chat);
+    const eventSource = new EventSource(`/api/room/${roomCode}/stream`);
+    eventSource.onmessage = (event) => {
+      try {
+        const room = JSON.parse(event.data);
+        if (!room) return;
 
-            // Sync players and determine our color
-            if (username) {
-              if (room.white_player === username) {
-                setPlayerColor('w');
-                setOpponentName(room.black_player);
-                setOpponentRating(room.black_player_rating || 1200);
-              } else if (room.black_player === username) {
-                setPlayerColor('b');
-                setOpponentName(room.white_player);
-                setOpponentRating(room.white_player_rating || 1200);
-              } else {
-                // Spectator
-                setPlayerColor(null);
-                setOpponentName(room.white_player);
-                setOpponentRating(room.white_player_rating || 1200);
-              }
-            }
-
-            // If game just finished, update our local profile stats/ratings
-            if (room.status === 'finished' && oldStatus !== 'finished') {
-              if (username) {
-                fetchUserProfile(username);
-              }
-              setShowGameOver(true);
-            }
-          }
-        } catch (err) {
-          console.error('SSE Error processing message:', err);
+        const incomingUpdatedAt = typeof room.updated_at === 'number' ? room.updated_at : 0;
+        const isDuplicate = incomingUpdatedAt && lastRemoteUpdateRef.current && incomingUpdatedAt <= lastRemoteUpdateRef.current;
+        if (isDuplicate && room.fen === lastAppliedRemoteFenRef.current) {
+          return;
         }
-      };
-      return () => eventSource.close();
-    }
-  }, [mode, roomCode, username, roomStatus]);
+        if (incomingUpdatedAt && lastRemoteUpdateRef.current && incomingUpdatedAt < lastRemoteUpdateRef.current) {
+          return;
+        }
+
+        if (room.fen) {
+          if (room.fen !== lastAppliedRemoteFenRef.current) {
+            engineRef.current.loadFen(room.fen);
+            lastAppliedRemoteFenRef.current = room.fen;
+            if (incomingUpdatedAt) {
+              lastRemoteUpdateRef.current = incomingUpdatedAt;
+            }
+            sounds.playMove();
+            updateState();
+          } else if (incomingUpdatedAt) {
+            lastRemoteUpdateRef.current = incomingUpdatedAt;
+          }
+        }
+
+        const oldStatus = roomStatusRef.current;
+        setRoomStatus(room.status);
+        roomStatusRef.current = room.status;
+        setLastChat(room.last_chat);
+
+        if (username) {
+          if (room.white_player === username) {
+            setPlayerColor('w');
+            setOpponentName(room.black_player);
+            setOpponentRating(room.black_player_rating || 1200);
+          } else if (room.black_player === username) {
+            setPlayerColor('b');
+            setOpponentName(room.white_player);
+            setOpponentRating(room.white_player_rating || 1200);
+          } else {
+            setPlayerColor(null);
+            setOpponentName(room.white_player);
+            setOpponentRating(room.white_player_rating || 1200);
+          }
+        }
+
+        if (room.status === 'finished' && oldStatus !== 'finished') {
+          if (username) {
+            fetchUserProfile(username);
+          }
+          setShowGameOver(true);
+        }
+      } catch (err) {
+        console.error('SSE Error processing message:', err);
+      }
+    };
+
+    return () => eventSource.close();
+  }, [mode, roomCode, username]);
 
   const handleFinishOnlineGame = (winner: string | null) => {
     if (!roomCode) return;
@@ -257,6 +283,8 @@ export function useChessGame() {
       updateState();
       
       const newFen = engineRef.current.getFen();
+      lastAppliedRemoteFenRef.current = newFen;
+      lastRemoteUpdateRef.current = Date.now();
       checkRepetition(newFen);
 
       if (mode === 'online' && roomCode) {
@@ -285,7 +313,14 @@ export function useChessGame() {
             status: status,
             winner: winnerName,
           }),
-        }).catch(() => {});
+        })
+          .then(async (response) => {
+            const data = await response.json().catch(() => null);
+            if (data?.room?.updated_at) {
+              lastRemoteUpdateRef.current = Number(data.room.updated_at);
+            }
+          })
+          .catch(() => {});
       }
     }
   };
@@ -300,10 +335,14 @@ export function useChessGame() {
     if (mode === 'online') {
       setRoomCode(null);
       setRoomStatus(null);
+      roomStatusRef.current = null;
       setPlayerColor(null);
       setOpponentName(null);
       setOpponentRating(null);
+      setIsPlaying(false);
     }
+    lastAppliedRemoteFenRef.current = null;
+    lastRemoteUpdateRef.current = null;
   };
 
   const handleUndo = () => {
@@ -323,6 +362,7 @@ export function useChessGame() {
     setMode('puzzle');
     updateState();
     setShowPuzzlesModal(false);
+    setIsPlaying(true);
   };
 
   // Save a room entry to localStorage history
@@ -351,10 +391,14 @@ export function useChessGame() {
       const data = await res.json();
       if (data.success && data.room) {
         engineRef.current = new ChessEngine(data.room.fen);
+        lastAppliedRemoteFenRef.current = data.room.fen;
+        lastRemoteUpdateRef.current = data.room.updated_at || Date.now();
         updateState();
         setRoomCode(data.room.code);
         setRoomStatus(data.room.status);
+        roomStatusRef.current = data.room.status;
         setMode('online');
+        setIsPlaying(true);
         
         let oppName: string | null = null;
         if (data.room.white_player === activeUsername) {
@@ -388,13 +432,17 @@ export function useChessGame() {
       const data = await res.json();
       if (data.success && data.room) {
         engineRef.current = new ChessEngine();
+        lastAppliedRemoteFenRef.current = engineRef.current.getFen();
+        lastRemoteUpdateRef.current = data.room.updated_at || Date.now();
         updateState();
         setRoomCode(data.room.code);
         setRoomStatus(data.room.status);
+        roomStatusRef.current = data.room.status;
         setPlayerColor('w'); // Host is always white
         setOpponentName(null);
         setOpponentRating(null);
         setMode('online');
+        setIsPlaying(true);
         saveRoomHistory(data.room.code, isPrivate, 'waiting', null);
       } else {
         throw new Error(data.error || "Xona yaratib bo'lmadi");
@@ -414,6 +462,20 @@ export function useChessGame() {
     }
   };
 
+  const handleExitGame = () => {
+    if (mode === 'online' && roomCode && roomStatus === 'active' && playerColor) {
+      if (confirm("O'yindan chiqsangiz sizga mag'lubiyat yoziladi. Chiqishni xohlaysizmi?")) {
+        const opponentColor = playerColor === 'w' ? 'b' : 'w';
+        handleFinishOnlineGame(opponentColor);
+        setIsPlaying(false);
+        handleRestart();
+      }
+    } else {
+      setIsPlaying(false);
+      handleRestart();
+    }
+  };
+
   return {
     engineRef, engineState, mode, setMode, difficulty, setDifficulty, soundEnabled, setSoundEnabled, username, handleLogin,
     pendingPromotion, setPendingPromotion, showGameOver, setShowGameOver, showOnlineModal, setShowOnlineModal,
@@ -422,5 +484,6 @@ export function useChessGame() {
     userRating, userStats, playerColor, roomStatus, opponentName, opponentRating, lastChat,
     handleJoinRoom, handleCreateRoom, handleFinishOnlineGame,
     botMode, handleSwitchToBot,
+    isPlaying, setIsPlaying, handleExitGame,
   };
 }
