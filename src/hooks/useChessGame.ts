@@ -8,13 +8,21 @@ import { ChessPuzzle } from '@/lib/puzzles/puzzleData';
 import { Position, PieceType, Move } from '@/lib/engine/types';
 import { GameMode } from '@/components/ui/ModeTabs';
 
-export function useChessGame() {
+export function useChessGame(initialRoomCode?: string) {
   const engineRef = useRef<ChessEngine>(new ChessEngine());
   const [engineState, setEngineState] = useState(engineRef.current.state);
-  const [mode, setMode] = useState<GameMode>('ai');
+  const [mode, setMode] = useState<GameMode>(
+    initialRoomCode && !initialRoomCode.startsWith('puzzle-') ? 'online' : 'ai'
+  );
+  const [botMode, setBotMode] = useState<'none' | 'both'>('none');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [username, setUsername] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('chess_username') || null;
+    }
+    return null;
+  });
 
   // User Rating and Stats
   const [userRating, setUserRating] = useState<number>(1200);
@@ -28,7 +36,6 @@ export function useChessGame() {
   const [lastChat, setLastChat] = useState<string | null>(null);
 
   // Bot switching state: tracks whether bot is playing both sides (only for non-online)
-  const [botMode, setBotMode] = useState<'none' | 'both'>('none');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Position; to: Position } | null>(null);
@@ -37,7 +44,7 @@ export function useChessGame() {
   const [showPuzzlesModal, setShowPuzzlesModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showDrawOffer, setShowDrawOffer] = useState(false);
-  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [roomCode, setRoomCode] = useState<string | null>(initialRoomCode || null);
 
   const fenHistoryRef = useRef<string[]>([]);
   const repetitionHistoryRef = useRef<Map<string, number>>(new Map());
@@ -70,47 +77,24 @@ export function useChessGame() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('shohmot_username');
-      if (saved) {
-        setUsername(saved);
-        fetchUserProfile(saved);
+    const isOnlineRoom = initialRoomCode &&
+      !initialRoomCode.startsWith('puzzle-') &&
+      initialRoomCode !== 'ai' &&
+      initialRoomCode !== 'pass';
 
-        const savedMode = localStorage.getItem('shohmot_mode') as GameMode | null;
-        const savedRoomCode = localStorage.getItem('shohmot_room_code');
-
-        if (savedMode) {
-          setMode(savedMode);
-        }
-
-        if (savedMode === 'online' && savedRoomCode) {
-          handleJoinRoom(savedRoomCode, saved)
-            .then(() => {
-              setIsPlaying(true);
-            })
-            .catch(() => {
-              localStorage.removeItem('shohmot_room_code');
-              setRoomCode(null);
-              setMode('ai');
-            });
-        }
-      } else {
-        setShowLoginModal(true);
-      }
+    if (isOnlineRoom && username) {
+      setMode('online');
+      setBotMode('none');
+      handleJoinRoom(initialRoomCode, username)
+        .catch((err) => {
+          console.error('Failed to join room from URL:', err);
+        });
     }
-  }, []);
 
-  // Persist mode and roomCode
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('shohmot_mode', mode);
-      if (roomCode) {
-        localStorage.setItem('shohmot_room_code', roomCode);
-      } else {
-        localStorage.removeItem('shohmot_room_code');
-      }
+    if (isOnlineRoom && !username) {
+      setShowLoginModal(true);
     }
-  }, [mode, roomCode]);
+  }, [initialRoomCode, username]);
 
   useEffect(() => {
     roomStatusRef.current = roomStatus;
@@ -129,7 +113,7 @@ export function useChessGame() {
   const handleLogin = async (name: string) => {
     setUsername(name);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('shohmot_username', name);
+      localStorage.setItem('chess_username', name);
     }
     await fetchUserProfile(name);
     setShowLoginModal(false);
@@ -155,11 +139,17 @@ export function useChessGame() {
   };
 
   // AI Move Trigger (both standard AI mode and bot-vs-bot switching)
+  // IMPORTANT: Never triggers in online mode
   useEffect(() => {
+    if (mode === 'online') {
+      botMoveLockRef.current = false;
+      return;
+    }
+
     // Standard AI mode: bot plays black
     const isAiTurn = mode === 'ai' && engineState.turn === 'b';
     // Bot mode: bot plays the current turn (both colors) in non-online modes
-    const isBotBothTurn = botMode === 'both' && mode !== 'online' && mode !== 'puzzle';
+    const isBotBothTurn = botMode === 'both' && mode !== 'puzzle';
 
     if ((isAiTurn || isBotBothTurn) && !engineState.isCheckmate && !engineState.isStalemate && !showDrawOffer && !gameResult) {
       const botColor = engineState.turn;
@@ -261,7 +251,7 @@ export function useChessGame() {
           }
           setGameResult({
             winner: winnerName,
-            reason: room.winner === 'draw' ? 'Kelishuvga ko\'ra durrang' : 'Taslim bo\'ldi yoki shoh va mot',
+            reason: room.winner === 'draw' ? `Kelishuvga ko\\'ra durrang` : `Taslim bo\\'ldi yoki shoh va mot`,
             isDraw: isDraw
           });
           setShowGameOver(true);
@@ -405,19 +395,6 @@ export function useChessGame() {
     setIsPlaying(true);
   };
 
-  // Save a room entry to localStorage history
-  const saveRoomHistory = (code: string, isPrivate: boolean, status: 'waiting' | 'active' | 'finished', opponentName?: string | null) => {
-    if (!username) return;
-    try {
-      const key = `shohmot_room_history_${username}`;
-      const stored = localStorage.getItem(key);
-      const existing: Array<{code: string; isPrivate: boolean; status: string; createdAt: number; opponentName?: string}> = stored ? JSON.parse(stored) : [];
-      const filtered = existing.filter(e => e.code !== code);
-      const entry = { code, isPrivate, status, createdAt: Date.now(), opponentName: opponentName || undefined };
-      const updated = [entry, ...filtered].slice(0, 10);
-      localStorage.setItem(key, JSON.stringify(updated));
-    } catch {}
-  };
 
   const handleJoinRoom = async (code: string, forcedUsername?: string) => {
     const activeUsername = forcedUsername || username;
@@ -430,6 +407,8 @@ export function useChessGame() {
       });
       const data = await res.json();
       if (data.success && data.room) {
+        setMode('online');
+        setBotMode('none');
         engineRef.current = new ChessEngine(data.room.fen);
         lastAppliedRemoteFenRef.current = data.room.fen;
         lastRemoteUpdateRef.current = data.room.updated_at || Date.now();
@@ -437,22 +416,17 @@ export function useChessGame() {
         setRoomCode(data.room.code);
         setRoomStatus(data.room.status);
         roomStatusRef.current = data.room.status;
-        setMode('online');
-        setIsPlaying(true);
         
-        let oppName: string | null = null;
         if (data.room.white_player === activeUsername) {
           setPlayerColor('w');
           setOpponentName(data.room.black_player);
           setOpponentRating(data.room.black_player_rating || 1200);
-          oppName = data.room.black_player;
         } else {
           setPlayerColor('b');
           setOpponentName(data.room.white_player);
           setOpponentRating(data.room.white_player_rating || 1200);
-          oppName = data.room.white_player;
         }
-        saveRoomHistory(data.room.code, data.room.is_private, data.room.status, oppName);
+        return data.room.code;
       } else {
         throw new Error(data.error || "Ulanib bo'lmadi");
       }
@@ -462,15 +436,22 @@ export function useChessGame() {
   };
 
   const handleCreateRoom = async (isPrivate: boolean) => {
-    if (!username) return;
+    // Fallback: read from localStorage in case state hasn't hydrated yet
+    const activeUsername = username || (typeof window !== 'undefined' ? localStorage.getItem('chess_username') : null);
+    if (!activeUsername) {
+      setShowLoginModal(true);
+      return;
+    }
     try {
       const res = await fetch('/api/room/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, is_private: isPrivate }),
+        body: JSON.stringify({ username: activeUsername, is_private: isPrivate }),
       });
       const data = await res.json();
       if (data.success && data.room) {
+        setMode('online');
+        setBotMode('none');
         engineRef.current = new ChessEngine();
         lastAppliedRemoteFenRef.current = engineRef.current.getFen();
         lastRemoteUpdateRef.current = data.room.updated_at || Date.now();
@@ -481,9 +462,7 @@ export function useChessGame() {
         setPlayerColor('w'); // Host is always white
         setOpponentName(null);
         setOpponentRating(null);
-        setMode('online');
-        setIsPlaying(true);
-        saveRoomHistory(data.room.code, isPrivate, 'waiting', null);
+        return data.room.code;
       } else {
         throw new Error(data.error || "Xona yaratib bo'lmadi");
       }
@@ -491,6 +470,7 @@ export function useChessGame() {
       throw err;
     }
   };
+
 
   // Switch current game to bot control (works only in AI and pass modes, NOT online)
   const handleSwitchToBot = () => {
@@ -535,3 +515,4 @@ export function useChessGame() {
     handleDeclineDraw,
   };
 }
+

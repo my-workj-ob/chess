@@ -1122,8 +1122,8 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         <button
           onClick={() => setIsRotating(!isRotating)}
           className={`px-2 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-wider transition active:scale-95 shadow-md flex items-center gap-1 ${isRotating
-              ? 'bg-violet-600 border-violet-500 text-white'
-              : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
+            ? 'bg-violet-600 border-violet-500 text-white'
+            : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
             }`}
         >
           🔄 {isRotating ? "Aylanishni To'xtatish" : "Avto-Aylanish"}

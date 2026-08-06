@@ -40,7 +40,7 @@ export const ModeTabs: React.FC<ModeTabsProps> = ({ currentMode, onSelectMode })
 
   return (
     <div className="px-4 py-3 bg-[#0B0F19]">
-      <div className="grid grid-cols-4 gap-2.5 max-w-md mx-auto">
+      <div className="grid grid-cols-4 gap-2.5 max-w-xl mx-auto">
         {tabs.map((tab) => {
           const isActive = currentMode === tab.id;
           return (

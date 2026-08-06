@@ -470,6 +470,42 @@ export async function listPublicRooms(): Promise<GameRoom[]> {
     .slice(0, 20);
 }
 
+export async function listRoomsForUser(username: string): Promise<GameRoom[]> {
+  const normUser = username.trim().toLowerCase();
+  if (sql) {
+    try {
+      await initDatabase();
+      const rows = await sql`
+        SELECT * FROM rooms
+        WHERE lower(white_player) = ${normUser}
+          OR lower(black_player) = ${normUser}
+        ORDER BY updated_at DESC
+        LIMIT 20;
+      `;
+      return rows.map((r) => ({
+        code: r.code,
+        fen: r.fen,
+        turn: r.turn,
+        white_player: r.white_player,
+        black_player: r.black_player,
+        moves: typeof r.moves === 'string' ? JSON.parse(r.moves) : (r.moves || []),
+        status: r.status,
+        winner: r.winner,
+        is_private: Boolean(r.is_private),
+        last_chat: r.last_chat,
+        updated_at: Number(r.updated_at),
+      }));
+    } catch (err) {
+      console.error('listRoomsForUser DB error:', err);
+    }
+  }
+
+  return Array.from(memoryRooms.values())
+    .filter((room) => room.white_player?.toLowerCase() === normUser || room.black_player?.toLowerCase() === normUser)
+    .sort((a, b) => b.updated_at - a.updated_at)
+    .slice(0, 20);
+}
+
 export async function sendRoomChat(code: string, chatMessage: string): Promise<GameRoom | null> {
   const upperCode = code.toUpperCase();
   const room = await getRoom(upperCode);

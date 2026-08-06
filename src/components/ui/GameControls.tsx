@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { RotateCcw, Lightbulb, RefreshCw, Sliders, LogOut, Flag, Bot, UserCheck } from 'lucide-react';
+import { RotateCcw, Lightbulb, RefreshCw, Sliders, LogOut, Flag, Bot, UserCheck, Share2 } from 'lucide-react';
 import { GameMode } from './ModeTabs';
 
 interface GameControlsProps {
@@ -14,6 +14,7 @@ interface GameControlsProps {
   onResign?: () => void;
   botMode?: 'none' | 'both';
   onSwitchToBot?: () => void;
+  roomCode?: string;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -26,6 +27,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onResign,
   botMode = 'none',
   onSwitchToBot,
+  roomCode,
 }) => {
   const diffLabels = {
     easy: 'Oson',
@@ -35,6 +37,19 @@ export const GameControls: React.FC<GameControlsProps> = ({
 
   const isOnline = mode === 'online';
   const canSwitchBot = (mode === 'ai' || mode === 'pass') && !isOnline;
+
+  const handleShare = () => {
+    if (!roomCode) return;
+    const url = `${window.location.origin}/join/${roomCode}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url)
+        .then(() => alert('Xona havolasi nusxalandi!'))
+        .catch(err => console.error('Could not copy text: ', err));
+    } else {
+      // Fallback for non-secure contexts
+      alert(`Havolani nusxalang: ${url}`);
+    }
+  };
 
   return (
     <div className="grid grid-cols-4 gap-1.5 mt-1.5 max-w-md mx-auto w-full">
@@ -58,11 +73,16 @@ export const GameControls: React.FC<GameControlsProps> = ({
         </button>
       )}
 
-      {/* Button 2: Hint or Status */}
+      {/* Button 2: Hint or Share */}
       {isOnline ? (
-        <div className="flex flex-col items-center justify-center p-1.5 h-[50px] rounded-xl bg-[#111827]/40 border border-slate-800/40 text-slate-600">
-          <span className="text-[9px] font-black leading-none">Online</span>
-        </div>
+        <button
+          onClick={handleShare}
+          disabled={!roomCode}
+          className="flex flex-col items-center justify-center p-1.5 h-[50px] rounded-xl bg-[#111827] border border-sky-500/40 hover:bg-[#1f2937]/30 text-sky-400 hover:border-sky-700 active:scale-95 disabled:opacity-40 transition"
+        >
+          <Share2 size={14} className="stroke-[2] mb-0.5 text-sky-500" />
+          <span className="text-[9px] font-black text-slate-300 leading-none">Ulashish</span>
+        </button>
       ) : (
         <button
           onClick={onHint}

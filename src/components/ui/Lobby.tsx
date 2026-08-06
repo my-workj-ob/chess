@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Globe, ShieldAlert, Plus, LogIn, RefreshCw, Play,
   Clock, Lock, Unlock, Trophy, Zap,
-  RotateCcw, Wifi, WifiOff, History, Crown
+  Wifi, WifiOff, History, Crown, Share2
 } from 'lucide-react';
 import { GameRoom, User } from '@/lib/db/schema';
 
@@ -21,7 +22,8 @@ interface LobbyProps {
   userRating: number;
   userStats: { wins: number; losses: number; draws: number } | null;
   onJoinRoom: (code: string) => void;
-  onCreateRoom: (isPrivate: boolean) => void;
+  onCreateRoom: (isPrivate: boolean) => Promise<void>;
+  onNeedLogin?: () => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
@@ -30,7 +32,9 @@ export const Lobby: React.FC<LobbyProps> = ({
   userStats,
   onJoinRoom,
   onCreateRoom,
+  onNeedLogin,
 }) => {
+  const router = useRouter();
   const [publicRooms, setPublicRooms] = useState<GameRoom[]>([]);
   const [topUsers, setTopUsers] = useState<User[]>([]);
   const [inputCode, setInputCode] = useState('');
@@ -39,16 +43,32 @@ export const Lobby: React.FC<LobbyProps> = ({
   const [error, setError] = useState('');
   const [roomHistory, setRoomHistory] = useState<RoomHistoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'history' | 'leaderboard'>('create');
+  // Dialog: user has an active room — ask before creating new
+  const [showActiveRoomDialog, setShowActiveRoomDialog] = useState(false);
+  const [pendingCreatePrivate, setPendingCreatePrivate] = useState(false);
 
-  const loadRoomHistory = useCallback(() => {
+  const fetchUserRooms = useCallback(async () => {
+    if (!username) {
+      setRoomHistory([]);
+      return;
+    }
+
     try {
-      const key = 'shohmot_room_history_' + username;
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        const parsed: RoomHistoryEntry[] = JSON.parse(stored);
-        setRoomHistory(parsed.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10));
+      const res = await fetch(`/api/user/rooms?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.rooms)) {
+        const history = data.rooms.map((room: any) => ({
+          code: room.code,
+          isPrivate: room.is_private,
+          status: room.status,
+          createdAt: Number(room.updated_at) || Date.now(),
+          opponentName: room.white_player === username ? room.black_player : room.white_player,
+        } as RoomHistoryEntry));
+        setRoomHistory(history.slice(0, 10));
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('Room history fetch error:', err);
+    }
   }, [username]);
 
   const fetchLobbyData = async () => {
@@ -66,16 +86,53 @@ export const Lobby: React.FC<LobbyProps> = ({
 
   useEffect(() => {
     fetchLobbyData();
-    loadRoomHistory();
+    fetchUserRooms();
     const interval = setInterval(fetchLobbyData, 3000);
     return () => clearInterval(interval);
-  }, [loadRoomHistory]);
+  }, [fetchUserRooms]);
 
-  const handleCreate = async () => {
+  const handleCreate = async (forceCreate = false) => {
+    // Check username from localStorage first (no re-login needed if already set)
+    const savedUser = username || (typeof window !== 'undefined' ? localStorage.getItem('chess_username') : null);
+    if (!savedUser) {
+      onNeedLogin?.();
+      return;
+    }
+
+    // Check if user has an active/waiting room
+    if (!forceCreate) {
+      const activeRoom = roomHistory.find(r => r.status === 'waiting' || r.status === 'active');
+      if (activeRoom) {
+        setPendingCreatePrivate(isPrivateCreate);
+        setShowActiveRoomDialog(true);
+        return;
+      }
+    }
+
     setLoading(true);
     setError('');
     try {
       await onCreateRoom(isPrivateCreate);
+    } catch (err: any) {
+      setError(err.message || 'Xona yaratishda xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close existing room and create new one
+  const handleCloseAndCreate = async () => {
+    setShowActiveRoomDialog(false);
+    setLoading(true);
+    setError('');
+    try {
+      // Close old rooms first
+      const activeRooms = roomHistory.filter(r => r.status === 'waiting' || r.status === 'active');
+      await Promise.all(activeRooms.map(r =>
+        fetch(`/api/room/${r.code}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) })
+          .catch(() => {})
+      ));
+      await onCreateRoom(pendingCreatePrivate);
     } catch (err: any) {
       setError(err.message || 'Xona yaratishda xatolik yuz berdi');
     } finally {
@@ -101,15 +158,8 @@ export const Lobby: React.FC<LobbyProps> = ({
   };
 
   const handleRejoin = async (entry: RoomHistoryEntry) => {
-    setLoading(true);
-    setError('');
-    try {
-      await onJoinRoom(entry.code);
-    } catch (err: any) {
-      setError(err.message || 'Xonaga qayta ulanishda xatolik yuz berdi');
-    } finally {
-      setLoading(false);
-    }
+    // Use the join page for proper private/public handling
+    router.push(`/join/${entry.code}`);
   };
 
   const handleReopen = async (_entry: RoomHistoryEntry) => {
@@ -121,6 +171,17 @@ export const Lobby: React.FC<LobbyProps> = ({
       setError(err.message || 'Xona yaratishda xatolik yuz berdi');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleShareRoom = (code: string) => {
+    const url = `${window.location.origin}/join/${code}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url)
+        .then(() => alert('Havola nusxalandi! Do\'stingizga yuboring.'))
+        .catch(() => alert(`Havolani nusxalang: ${url}`));
+    } else {
+      alert(`Havolani nusxalang: ${url}`);
     }
   };
 
@@ -162,7 +223,37 @@ export const Lobby: React.FC<LobbyProps> = ({
   const MEDAL_3 = '\uD83E\uDD49';
 
   return (
-    <div className="w-full max-w-md mx-auto px-0 py-4 space-y-4">
+    <div className="w-full max-w-xl mx-auto px-0 py-4 space-y-4">
+
+      {/* Active Room Dialog */}
+      {showActiveRoomDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#111827] border border-slate-700/80 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="text-center">
+              <div className="text-3xl mb-2">🏠</div>
+              <h3 className="text-sm font-black text-white">Sizda faol xona bor</h3>
+              <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                Yangi xona ochish uchun avvalgi xona yopiladi. Davom etasizmi?
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowActiveRoomDialog(false)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black bg-slate-800 text-slate-300 hover:bg-slate-700 transition active:scale-95"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleCloseAndCreate}
+                disabled={loading}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 transition active:scale-95 disabled:opacity-50"
+              >
+                {loading ? 'Yopilmoqda...' : 'Yopib, Yangi Och'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Player Stats Card */}
       <div className="bg-[#111827] border border-slate-800/80 rounded-3xl p-4 flex items-center gap-3">
@@ -283,7 +374,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             </p>
 
             <button
-              onClick={handleCreate}
+              onClick={() => handleCreate(false)}
               disabled={loading}
               className="w-full py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -346,14 +437,22 @@ export const Lobby: React.FC<LobbyProps> = ({
                           {room.white_player || 'Nomalum'} vs {room.black_player || 'Kutilmoqda...'}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleJoin(room.code)}
-                        disabled={isFull}
-                        className={'px-3 py-1.5 rounded-xl font-black text-[10px] flex items-center gap-1 transition ' + (isFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:scale-95')}
-                      >
-                        <Play size={9} strokeWidth={3} />
-                        {isFull ? 'Toliq' : 'Qoshil'}
-                      </button>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleShareRoom(room.code)}
+                          className="px-2 py-1.5 rounded-xl text-[9px] font-black flex items-center gap-1 bg-sky-500/10 text-sky-400 border border-sky-500/25 hover:bg-sky-500/20 active:scale-95 transition"
+                        >
+                          <Share2 size={9} />
+                        </button>
+                        <button
+                          onClick={() => isFull ? null : router.push(`/join/${room.code}`)}
+                          disabled={isFull}
+                          className={'px-3 py-1.5 rounded-xl font-black text-[10px] flex items-center gap-1 transition ' + (isFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:scale-95')}
+                        >
+                          <Play size={9} strokeWidth={3} />
+                          {isFull ? 'Toliq' : 'Qoshil'}
+                        </button>
+                      </div>
                     </div>
                   );
                 })
@@ -415,12 +514,12 @@ export const Lobby: React.FC<LobbyProps> = ({
                       </button>
                     )}
                     <button
-                      onClick={() => handleReopen(entry)}
+                      onClick={() => handleShareRoom(entry.code)}
                       disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-black rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/25 hover:bg-violet-500/25 active:scale-95 transition"
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-black rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/25 hover:bg-sky-500/25 active:scale-95 transition"
                     >
-                      <RotateCcw size={11} />
-                      Qayta Ochish
+                      <Share2 size={11} />
+                      Ulashish
                     </button>
                   </div>
                 </div>
