@@ -36,18 +36,21 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if (!canDrag) return;
+    // canDrag is no longer checking on pointerDown, allowing pointerDown -> pointerUp flow to trigger click on opponent pieces too.
 
     setIsDragging(true);
     setStartPos({ x: e.clientX, y: e.clientY });
     setOffset({ x: 0, y: 0 });
     setHasMovedSignificant(false);
 
-    e.currentTarget.setPointerCapture(e.pointerId);
+    if (canDrag) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
+    if (!canDrag) return; // Prevent movement drag if the piece cannot be dragged (opponent's turn/piece)
 
     const dx = e.clientX - startPos.x;
     const dy = e.clientY - startPos.y;
@@ -81,7 +84,7 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
     const moved = hasMovedSignificant;
     setIsDragging(false);
 
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+    if (canDrag && e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
 
@@ -90,7 +93,7 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
     setOffset({ x: 0, y: 0 });
     if (onDragClear) onDragClear();
 
-    if (moved && onDrop) {
+    if (moved && onDrop && canDrag) {
       const board = e.currentTarget.closest('[data-board-root]');
       if (board) {
         const rect = board.getBoundingClientRect();
@@ -124,7 +127,7 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
     transform: `translate(${offset.x}px, ${offset.y}px)`,
     zIndex: 50,
     position: 'relative',
-    pointerEvents: 'none',
+    // Removed pointerEvents: 'none' to keep pointer capture active on mobile browsers
   } : {};
 
   return (
@@ -135,11 +138,6 @@ export const DraggablePiece: React.FC<DraggablePieceProps> = ({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onClick={(e) => {
-        // Bosish (tap/click) logikasi to'liq pointerUp ichida hal qilinadi.
-        // Bu handler faqat brauzerning o'z ichki "click" hodisasi
-        // doskaga (SquareContainer) yugurib, onClick'ni QAYTA chaqirib
-        // yubormasligi uchun kerak — shu ikkilanish tanlashni
-        // darhol bekor qilib qo'yayotgan bug edi.
         e.stopPropagation();
       }}
       style={{

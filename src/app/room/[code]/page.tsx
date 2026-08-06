@@ -211,9 +211,13 @@ export default function RoomPage({ params }: { params: Promise<{ code: string }>
     }
   }
 
-  // Show fullscreen loading only when username is unknown and login modal isn't shown yet
-  // (This is only needed for direct URL access, not for in-app navigation)
-  if (!username && !showLoginModal) {
+  // Show fullscreen loading only when username is unknown and login modal isn't shown yet in online mode
+  const isOnlineMode = initialRoomCode &&
+    initialRoomCode !== 'ai' &&
+    initialRoomCode !== 'pass' &&
+    !initialRoomCode.startsWith('puzzle-');
+
+  if (isOnlineMode && !username && !showLoginModal) {
     return (
       <>
         <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#070A13] gap-6">

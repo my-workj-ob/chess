@@ -11,9 +11,13 @@ import { GameMode } from '@/components/ui/ModeTabs';
 export function useChessGame(initialRoomCode?: string) {
   const engineRef = useRef<ChessEngine>(new ChessEngine());
   const [engineState, setEngineState] = useState(engineRef.current.state);
-  const [mode, setMode] = useState<GameMode>(
-    initialRoomCode && !initialRoomCode.startsWith('puzzle-') ? 'online' : 'ai'
-  );
+  const [mode, setMode] = useState<GameMode>(() => {
+    if (!initialRoomCode) return 'ai';
+    if (initialRoomCode === 'ai') return 'ai';
+    if (initialRoomCode === 'pass') return 'pass';
+    if (initialRoomCode.startsWith('puzzle-')) return 'puzzle';
+    return 'online';
+  });
   const [botMode, setBotMode] = useState<'none' | 'both'>('none');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [soundEnabled, setSoundEnabled] = useState(true);
