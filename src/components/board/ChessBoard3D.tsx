@@ -34,11 +34,11 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   loserColor = null,
   reasonText = '',
   theme,
-  onRestart = () => {},
+  onRestart = () => { },
   mode = 'ai',
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  
+
   // Interaction and UI States
   const [showOverlay, setShowOverlay] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -49,7 +49,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  
+
   // Camera angles for custom orbit controls
   const cameraAnglesRef = useRef({ theta: orientation === 'w' ? 0 : Math.PI, phi: Math.PI / 4, radius: 10 });
   const isMouseDownRef = useRef(false);
@@ -120,11 +120,11 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         points.push(new THREE.Vector2(0.1, 0.45));
         points.push(new THREE.Vector2(0.18, 0.5));
         points.push(new THREE.Vector2(0.1, 0.55));
-        
+
         const base = new THREE.LatheGeometry(points, 16);
         const head = new THREE.SphereGeometry(0.16, 12, 12);
         head.translate(0, 0.65, 0);
-        
+
         geometry = base; // Merge them physically or group them. For simplicity, we create groups.
         // We will combine them in the group.
         scaleY = 0.8;
@@ -139,7 +139,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         points.push(new THREE.Vector2(0.24, 0.55));
         points.push(new THREE.Vector2(0.3, 0.65));
         points.push(new THREE.Vector2(0.3, 0.8));
-        
+
         geometry = new THREE.LatheGeometry(points, 16);
         scaleY = 0.95;
         break;
@@ -184,7 +184,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         points.push(new THREE.Vector2(0.24, 0.6));
         points.push(new THREE.Vector2(0.15, 0.82));
         points.push(new THREE.Vector2(0.04, 0.88));
-        
+
         geometry = new THREE.LatheGeometry(points, 16);
         scaleY = 1.05;
         break;
@@ -199,7 +199,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         points.push(new THREE.Vector2(0.34, 0.8));
         points.push(new THREE.Vector2(0.26, 0.85));
         points.push(new THREE.Vector2(0.04, 0.9));
-        
+
         geometry = new THREE.LatheGeometry(points, 16);
         scaleY = 1.15;
         break;
@@ -214,7 +214,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         points.push(new THREE.Vector2(0.28, 0.84));
         points.push(new THREE.Vector2(0.24, 0.94));
         points.push(new THREE.Vector2(0.04, 0.96));
-        
+
         geometry = new THREE.LatheGeometry(points, 16);
         scaleY = 1.25;
         break;
@@ -362,7 +362,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   const updateCameraPosition = () => {
     if (!cameraRef.current) return;
     const angles = cameraAnglesRef.current;
-    
+
     // Polar coordinates mapping
     const x = angles.radius * Math.sin(angles.theta) * Math.cos(angles.phi);
     const z = angles.radius * Math.cos(angles.theta) * Math.cos(angles.phi);
@@ -379,7 +379,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
     // 1. Scene setup
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    
+
     // Set background color
     scene.background = new THREE.Color(0x070a13);
 
@@ -396,7 +396,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    
+
     // Clear previous children
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
@@ -436,7 +436,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         const isLight = (r + c) % 2 === 0;
         const mat = isLight ? boardMats.lightMat : boardMats.darkMat;
         const square = new THREE.Mesh(squareGeo, mat);
-        
+
         const pos = get3DCoords(r, c);
         square.position.set(pos.x, 0.05, pos.z);
         square.receiveShadow = true;
@@ -457,7 +457,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
     let animationFrameId: number;
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      
+
       if (isRotating && !isMouseDownRef.current) {
         cameraAnglesRef.current.theta += 0.003;
         updateCameraPosition();
@@ -519,7 +519,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
 
         const { geometry, scaleY } = createPieceGeometry(piece.type);
         const material = getThemeMaterials(piece.color, piece.type);
-        
+
         const mesh = new THREE.Mesh(geometry, material);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -538,7 +538,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
           vert.position.y = 1.05;
           vert.castShadow = true;
           pieceGroup.add(vert);
-          
+
           const horiz = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.05), crossMat);
           horiz.position.y = 1.08;
           horiz.castShadow = true;
@@ -597,7 +597,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
 
       const frameGeo = new THREE.BoxGeometry(0.98, 0.02, 0.98);
       const moveMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.35 });
-      
+
       const frameFrom = new THREE.Mesh(frameGeo, moveMat);
       frameFrom.position.set(fromPos.x, 0.13, fromPos.z);
       scene.add(frameFrom);
@@ -614,7 +614,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
       const pos = get3DCoords(kingCheckSquare.r, kingCheckSquare.c);
       const checkGeo = new THREE.BoxGeometry(0.99, 0.03, 0.99);
       const checkMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.55 });
-      
+
       const checkMesh = new THREE.Mesh(checkGeo, checkMat);
       checkMesh.position.set(pos.x, 0.131, pos.z);
       scene.add(checkMesh);
@@ -654,12 +654,12 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
     if (kPos && (kingCheckSquare || isFinished)) {
       // 4a. Find Direct checkers
       const directCheckers = getAttackerPaths(kPos, enemyColor);
-      
+
       directCheckers.forEach((path) => {
         if (path.length < 2) return;
         const start = get3DCoords(path[0].r, path[0].c);
         const end = get3DCoords(path[path.length - 1].r, path[path.length - 1].c);
-        
+
         // Draw Laser line cylinder
         const laser = create3DLaser(start, end, 0xf43f5e, 0.035); // Rose neon checking line
         scene.add(laser);
@@ -678,8 +678,8 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
       // 4b. Find Escape blockers (adjacent squares under attack)
       const adjacentOffsets = [
         [-1, -1], [-1, 0], [-1, 1],
-        [0, -1],           [0, 1],
-        [1, -1],  [1, 0],  [1, 1]
+        [0, -1], [0, 1],
+        [1, -1], [1, 0], [1, 1]
       ];
 
       adjacentOffsets.forEach(([dr, dc]) => {
@@ -690,7 +690,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
           if (!p || p.color === enemyColor) {
             const sqPos = { r, c };
             const blockers = getAttackerPaths(sqPos, enemyColor);
-            
+
             blockers.forEach((path) => {
               if (path.length < 2) return;
               const start = get3DCoords(path[0].r, path[0].c);
@@ -718,7 +718,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   // Local helper to find paths from enemy attackers to a target square
   const getAttackerPaths = (targetPos: Position, attackerColor: PieceColor): Position[][] => {
     const paths: Position[][] = [];
-    
+
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
         const p = board[r][c];
@@ -763,7 +763,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
             }
           }
         }
-        
+
         if (p.type === 'b' || (p.type === 'q' && absDr === absDc)) {
           if (absDr === absDc) {
             const stepR = dr > 0 ? 1 : -1;
@@ -795,7 +795,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   };
 
   // Helper to draw a cylindrical glowing laser cylinder in 3D
-  const create3DLaser = (start: {x: number; z: number}, end: {x: number; z: number}, hexColor: number, radius: number): THREE.Mesh => {
+  const create3DLaser = (start: { x: number; z: number }, end: { x: number; z: number }, hexColor: number, radius: number): THREE.Mesh => {
     const startVec = new THREE.Vector3(start.x, 0.2, start.z);
     const endVec = new THREE.Vector3(end.x, 0.2, end.z);
     const distance = startVec.distanceTo(endVec);
@@ -816,7 +816,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
   const getMouseCoords = (e: React.MouseEvent | React.TouchEvent) => {
     if (!mountRef.current) return null;
     const rect = mountRef.current.getBoundingClientRect();
-    
+
     let clientX = 0;
     let clientY = 0;
 
@@ -864,7 +864,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
         if (obj && obj.userData.color === currentTurn) {
           const { r, c } = obj.userData;
           selectedPieceRef.current = { r, c, mesh: obj as THREE.Group };
-          
+
           // Elevate piece slightly to indicate selected state
           obj.position.y = 0.5;
 
@@ -891,7 +891,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
 
       const intersection = new THREE.Vector3();
       raycasterRef.current.ray.intersectPlane(dragPlaneRef.current, intersection);
-      
+
       // Update dragged piece XZ position
       selectedPieceRef.current.mesh.position.x = intersection.x;
       selectedPieceRef.current.mesh.position.z = intersection.z;
@@ -922,7 +922,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
     const coords = e ? getMouseCoords(e) : null;
     const rawX = coords ? coords.rawX : pointerDownScreenPos.current.x;
     const rawY = coords ? coords.rawY : pointerDownScreenPos.current.y;
-    
+
     const deltaX = rawX - pointerDownScreenPos.current.x;
     const deltaY = rawY - pointerDownScreenPos.current.y;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -936,7 +936,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
       // Snap the piece mesh back to its base height
       const originalPos = get3DCoords(startR, startC);
       dragMesh.position.set(originalPos.x, 0.075, originalPos.z);
-      
+
       // Clear visual indicators drawn during drag
       clearLegalMovesIndicators();
 
@@ -1038,7 +1038,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
 
     moves.forEach((move) => {
       const pos = get3DCoords(move.to.r, move.to.c);
-      
+
       // If capturing an enemy, draw a red border ring; if moving, draw a small green sphere dot
       if (move.captured) {
         const ringGeo = new THREE.RingGeometry(0.38, 0.46, 16);
@@ -1121,11 +1121,10 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
       <div className="absolute bottom-3 left-3 z-30 flex items-center gap-1.5">
         <button
           onClick={() => setIsRotating(!isRotating)}
-          className={`px-2 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-wider transition active:scale-95 shadow-md flex items-center gap-1 ${
-            isRotating
+          className={`px-2 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-wider transition active:scale-95 shadow-md flex items-center gap-1 ${isRotating
               ? 'bg-violet-600 border-violet-500 text-white'
               : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'
-          }`}
+            }`}
         >
           🔄 {isRotating ? "Aylanishni To'xtatish" : "Avto-Aylanish"}
         </button>
@@ -1157,7 +1156,7 @@ export const ChessBoard3D: React.FC<ChessBoard3DProps> = ({
                     : 'G\'ALABA!'}
               </h3>
             </div>
-            
+
             <p className="text-[10px] text-slate-400 font-bold leading-normal">
               {winnerColor === 'draw'
                 ? `O'yin durrang bilan yakunlandi. Sabab: ${reasonText}`
