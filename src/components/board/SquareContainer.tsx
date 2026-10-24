@@ -100,11 +100,17 @@ export const SquareContainer: React.FC<SquareContainerProps> = ({
       {/* Piece */}
       {children}
 
-      {/* Legal move dot */}
+      {/* Legal move dot for empty square */}
       {isLegalMove && !children && (
         <span
-          className="w-[30%] h-[30%] rounded-full opacity-35 pointer-events-none"
-          style={{ backgroundColor: isDark ? 'var(--color-board-light)' : 'var(--color-board-dark)' }}
+          className="w-[28%] h-[28%] rounded-full bg-violet-500/40 pointer-events-none shadow-sm"
+        />
+      )}
+
+      {/* Legal capture ring for square containing capturable piece */}
+      {isLegalMove && children && (
+        <span
+          className="absolute inset-1 rounded-full border-4 border-violet-500/50 pointer-events-none shadow-sm"
         />
       )}
     </div>

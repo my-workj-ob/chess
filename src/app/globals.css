@@ -5,19 +5,28 @@
 }
 
 :root {
-  --color-board-light: #708096;
-  --color-board-dark: #2c3545;
-  --color-board-selected: #c87a2a;
-  --color-board-last: #b57026;
-  --color-board-text-light: #2c3545;
-  --color-board-text-dark: #708096;
+  --color-board-light: #C8CFDA;
+  --color-board-dark: #627088;
+  --color-board-selected: rgba(124, 58, 237, 0.65);
+  --color-board-last: rgba(139, 92, 246, 0.45);
+  --color-board-text-light: #627088;
+  --color-board-text-dark: #C8CFDA;
+}
+
+.theme-classic {
+  --color-board-light: #C8CFDA;
+  --color-board-dark: #627088;
+  --color-board-selected: rgba(124, 58, 237, 0.65);
+  --color-board-last: rgba(139, 92, 246, 0.45);
+  --color-board-text-light: #627088;
+  --color-board-text-dark: #C8CFDA;
 }
 
 .theme-emerald {
   --color-board-light: #eeeed2;
   --color-board-dark: #769656;
   --color-board-selected: #bac964;
-  --color-board-last: #baca44;
+  --color-board-last: rgba(186, 202, 68, 0.5);
   --color-board-text-light: #769656;
   --color-board-text-dark: #eeeed2;
 }
@@ -26,7 +35,7 @@
   --color-board-light: #1e1b4b;
   --color-board-dark: #4c1d95;
   --color-board-selected: #ec4899;
-  --color-board-last: #db2777;
+  --color-board-last: rgba(219, 39, 119, 0.5);
   --color-board-text-light: #4c1d95;
   --color-board-text-dark: #c084fc;
 }
@@ -35,7 +44,7 @@
   --color-board-light: #f0d9b5;
   --color-board-dark: #b58863;
   --color-board-selected: #829769;
-  --color-board-last: #b5a03b;
+  --color-board-last: rgba(181, 160, 59, 0.5);
   --color-board-text-light: #b58863;
   --color-board-text-dark: #f0d9b5;
 }
@@ -46,19 +55,23 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;
-    overflow-x: hidden;
-    background-color: #070A13;
+    background-color: #080C14;
+    color: #F1F5F9;
   }
 }
 
-/* Custom Scrollbar for Drawer Modals */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(10, 14, 23, 0.7);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: rgba(43, 56, 82, 0.8);
   border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
 }

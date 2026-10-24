@@ -22,6 +22,7 @@ export interface Move {
   promotion?: PieceType;
   isCastling?: 'ks' | 'qs';
   isEnPassant?: boolean;
+  san?: string;
 }
 
 export interface CastlingRights {
@@ -38,4 +39,9 @@ export interface GameState {
   isCheck: boolean;
   isCheckmate: boolean;
   isStalemate: boolean;
+  isDraw: boolean;
+  drawReason?: string;
+  halfmoveClock: number;
+  capturedWhite: PieceType[]; // pieces captured by black (white pieces)
+  capturedBlack: PieceType[]; // pieces captured by white (black pieces)
 }
